@@ -1,0 +1,185 @@
+---
+title: "Linear Models and Regression Analysis Homework 4"
+author: "Yifei Dong"
+date: "9/23/2020"
+output: pdf_document
+---
+
+# 0. Data Preparation
+setwd("/Users/yifei/Documents/Teachers College/Linear Models and Regression/Week 4/hw4")
+getwd()
+
+# 1. Flavor Deterioration
+
+The results shown below were obtained in a small-scale experiment to study the relation between $^{\circ}F$ of storage temperature ($X$) and number of weeks before flavor deterioration of a food product begins to occur ($Y$).
+
+Use the data from Exercises 5.4 on p.210. Using \textbf{\emph{matrix methods}}, find the following:
+
+```{r}
+# Get data from Exercise 5.4 on p.210
+mydata<-read.table(
+  "http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%205%20Data%20Sets/CH05PR04.txt")
+# Renames the variable
+names(mydata)<-c("Y","X")
+mydata
+```
+
+$~$
+
+(1). $Y'Y$
+
+```{r}
+# Create the design matrix Y
+Y<-matrix(mydata$Y,ncol = 1,nrow(mydata))
+Y
+```
+
+```{r}
+# Create the design matrix X
+X<-cbind(rep(1,nrow(mydata)),mydata$X)
+X
+```
+
+```{r}
+# Y'Y
+t(Y) %*% Y
+```
+
+$~$
+
+(2). $X'X$
+
+```{r}
+# X'X
+t(X) %*% X
+```
+
+$~$
+
+(3). $(X'X)^{-1}$
+
+```{r}
+#(X'X)^(-1)
+solve(t(X) %*% X)
+```
+
+$~$
+
+(4). Vector $\textbf{b}$ of estimated regression coefficients
+
+```{r}
+# b=((X'X)^(-1))X'Y
+b<-solve(t(X) %*% X) %*% t(X) %*% Y
+b
+```
+
+```{r}
+# Check and compare to built-in lm function
+reg<-lm(mydata$Y~mydata$X)
+summary(reg)
+```
+
+$~$
+
+(5). Vector of residuals
+
+```{r}
+# Predicted Values: Xb
+y.hat<-X %*% b
+y.hat
+```
+
+```{r}
+# Cross-check with build-in function
+cbind(predict(reg),y.hat)
+```
+
+The predicted values calculated using the matrix methods are equal to the the results with build-in function
+
+```{r}
+# Vector of Residuals
+e<-Y-y.hat
+e
+# Cross-check with build-in function
+residuals(reg)
+```
+
+$~$
+
+```{r}
+# Sample size
+n<-nrow(mydata)
+# Identity matrix
+I<-diag(rep(1,n))
+# H matrix: X(X'X)^(-1)X'
+H<-X %*% solve(t(X) %*% X) %*% t(X)
+# Matrix methods for Residuals
+(I-H) %*% Y
+```
+
+$~$
+
+(6). SSR
+
+```{r}
+# J matrix
+J<-matrix(rep(1,n^2),n,n)
+# SSR=Y'(H-(1/n)J)Y
+SSR<-t(Y) %*% (H-(J/n)) %*% Y
+SSR
+```
+
+$~$
+
+(7). SSE
+
+```{r}
+# SSE=e'e=Y'Y-b'X'Y
+SSE<-t(Y) %*% Y-t(b) %*% t(X) %*% Y
+SSE
+```
+
+```{r}
+# Check with ANOVA Table
+anova(reg)
+# The results are the same.
+```
+
+$~$
+
+(8). Cov($b$)
+
+```{r}
+# Covariance matrix of b
+# MSE
+MSE<-SSE/(n-2)
+MSE
+```
+
+```{r}
+# cov(b)=MSE(X'X)^(-1)
+s.sq.b<-drop(MSE)*solve(t(X) %*% X)
+s.sq.b
+```
+
+$~$
+
+(9). Point estimate of $E\{Y_{h}\}$ when $X_{h}=-6$
+
+```{r}
+x.new<-c(1,-6)
+y.hat.h<-t(x.new) %*% b
+y.hat.h
+```
+
+$~$
+
+(10). Hat matrix $H$
+
+```{r}
+# H matrix: X(X'X)^(-1)X'
+H<-X %*% solve(t(X) %*% X) %*% t(X)
+H
+```
+
+

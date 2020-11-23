@@ -1,0 +1,90 @@
+---
+title: "HW4"
+author: "Chengxuan Hu"
+date: "9/29/2020"
+output: word_document
+---
+
+```{r}
+### Q5.24
+# Read Table5.24
+t5.4<-read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%205%20Data%20Sets/CH05PR04.txt", header=FALSE)
+# Column names can be changed with
+names(t5.4)[1]<-paste("y")
+names(t5.4)[2]<-paste("x")
+t5.4
+
+# To use the column names without reference to t5.24 you need to attach the dataset:
+attach(t5.4)
+
+X = cbind(rep(1, nrow(t5.4)), x)
+X
+```
+
+(1) 
+```{r}
+t(y) %*% y
+```
+
+(2)
+```{r}
+t(X) %*% X
+```
+
+(3)
+```{r}
+solve(t(X)%*%X)
+```
+
+(4) Vector b of estimated regression coefficients
+```{r}
+ (b = solve(t(X)%*%X) %*% t(X) %*% y)
+```
+
+(5) Vector of residuals
+```{r}
+# Predicted values
+y.hat = X%*%b
+
+# Residuals
+(e = y - y.hat)
+```
+
+(6) SSR
+```{r}
+# Hat matrix
+H = X %*% solve(t(X)%*%X) %*% t(X)
+# J matrix
+n = nrow(t5.4)
+J = matrix(rep(1, n^2), n, n)
+# SSR
+SSR = t(y) %*% (H - J/n) %*% y
+SSR
+# SSR = 9.604
+```
+
+(7) SSE
+```{r}
+SSE = t(y)%*%y - t(b)%*%t(X)%*%y
+SSE
+# SSE = 0.148
+```
+
+(8) Cov(b)
+```{r}
+MSE = SSE/(nrow(t5.4)-2)
+(s.sq.b = drop(MSE)*solve(t(X)%*%X))
+```
+
+(9)
+```{r}
+ Xh<-rbind(1,-6)
+ (E=t(Xh) %*% b)
+ # E{Yh} = 11.41
+```
+
+(10) hat matrix H
+```{r}
+(H = X %*% solve(t(X)%*%X) %*% t(X))
+```
+
