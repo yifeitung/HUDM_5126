@@ -1,0 +1,54 @@
+\documentclass{article}
+% packages
+\usepackage[margin=1 in]{geometry}
+\usepackage{indentfirst}
+\usepackage{titlesec}
+\usepackage{enumitem}
+
+%math package
+\usepackage{amsmath}
+\usepackage{mathtools}
+
+% Use Links
+\usepackage{xcolor}
+\usepackage[colorlinks=true ,citecolor=blue, urlcolor=blue,urlbordercolor={1 0 0}]{hyperref} 
+
+
+\title{HUDM 5126 Linear Models and Regression Analysis Homework 3\footnote{This homework is written in \LaTeX.}}
+\author{Yifei Dong}
+\date{Sep 16 2020}
+
+\begin{document}
+\maketitle
+
+\section{Grade Point Average}
+The question is adapted from Q3.3 Refer to Grade Point Average data in Problem 1.19.
+\begin{enumerate}[label=(\alph*)]
+\item Prepare a boxplot of the ACT scores ($X$ variable). Ate there any noteworthy features on the plot?
+
+\item Prepare a histogram of the residuals. What information does the plot provide?
+
+\item Plot the residuals against the fitted values $\widehat{Y}$. What are your findings about departures from the regression assumptions?
+
+\item Prepare a normal probability plot of the residuals. Test the reasonableness of the normality assumption with the KS test using $\alpha=0.05$. What do you conclude?
+
+\item Conduct the BP test to determine if the variance varies with the level of X. Use $\alpha=0.05$. State your conclusion. Does your conclusion support your preliminary findings in part c)?
+
+\end{enumerate}
+
+\section{Per capita earnings}
+A sociologist employed linear regression model (2.1) to relate per capita earnings ($Y$) to average number of years of schooling ($X$) for 12 cities. The fitted values $\widehat{Y_{i}}$ and the semistudentized residuals $e^*_{i}$ follow.
+
+\begin{enumerate}[label=(\alph*)]
+
+\item Plot the semistudentized residuals against the fitted values. What does the plot suggest?
+
+\item How many semistudentized residuals are outside $\pm 1$ standard deviation? Approximately how many would you expect to see if the normal error model is appropriate?
+
+\end{enumerate}
+
+\section{R and RStudio}
+
+Read the data frame from the file HW3.RData by double-clicking on it and opening with RStudio.
+
+\end{document}
