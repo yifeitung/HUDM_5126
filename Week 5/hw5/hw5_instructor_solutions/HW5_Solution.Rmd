@@ -1,0 +1,133 @@
+---
+title: "HW5"
+author: "Chengxuan Hu"
+date: "10/7/2020"
+output: word_document
+---
+
+p248 Q6.5
+```{r}
+ # Read Table6.5
+ t6.5<-read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%206%20Data%20Sets/CH06PR05.txt", header=FALSE)
+ # Column names can be changed with
+ names(t6.5)[1]<-paste("Y")
+ names(t6.5)[2]<-paste("X1")
+ names(t6.5)[3]<-paste("X2")
+ 
+ # To use the column names without reference to t6.5 you need to attach the dataset:
+ attach(t6.5)
+```
+a. Obtain the scatter plot matrix and the correlation matrix. What information do these diag- nostic aids provide here?
+```{r}
+# scatter plot
+pairs(t6.5)
+
+# correlation matrix
+cor(t6.5)
+
+## Y and X1 are highly positively correlated while Y and X2 are moderately positively correlated. There is no linear correlation between X1 and X2.
+```
+b. Fit regression model (6.1) to the data. State the estimated regression function. How is bi interpreted here?
+```{r}
+reg<-lm(Y ~ X1 + X2)
+summary(reg)
+
+# the estimated regression function:
+## Y.hat = 37.65+4.425*X1+4.3750*X2
+
+## b1 is the slope of X1, which means holding X2 constant, Y will increase by 4.425 with the increase one unit of X1.
+## That is to say, holding sweetness constant, degree of brand liking will increase by 4.425 with the increase one unit of moisture content.
+```
+
+c. Obtain the residuals and prepare a box plot of the residuals. What information does this plot provide?
+```{r}
+e<-resid(reg)
+boxplot(e)
+
+## The residuals are symmetrically distributed around zero. There are no outliers.
+```
+d. Plot the residuals against Y, X1, X2, and X1X2 on separate graphs. Also prepare a normal probability plot. Interpret the plots and summarize your findings.
+```{r}
+Yhat<-predict(reg)
+plot(Yhat,e)
+plot(X1,e)
+plot(X2,e)
+plot(X1*X2,e)
+
+## There are no outliers. Linearity is reasonable. Constant variance holds. No interaction effect.
+
+qqnorm(e)
+qqline(e)
+## Normality holds.
+```
+e. Conduct the Breusch-Palgan test for constancy of the error variance. State the alternatives, decision rule, and conclusion.
+```{r}
+library(lmtest)
+bptest(reg)
+
+## H0: gamma1 = gamma2 = 0
+## Ha: gamma1 or gamma2 is not zero, that is constant variance violates.
+## decision rule: if p-value<0.01, reject H0
+## Conlusion: p-value=0.3599>0.01, do not reject H0. That is, constant variance holds.
+```
+
+p245 Q6.27
+```{r}
+ # Read Table6.27
+ t6.27<-read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%206%20Data%20Sets/CH06PR27.txt", header=FALSE)
+ # Column names can be changed with
+ names(t6.27)[1]<-paste("y")
+ names(t6.27)[2]<-paste("x1")
+ names(t6.27)[3]<-paste("x2")
+ 
+ attach(t6.27)
+ 
+ Y = y
+ X = cbind(rep(1, nrow(t6.27)), x1, x2)
+```
+
+(a)
+```{r}
+ (b = solve(t(X)%*%X)%*%t(X)%*%y)
+```
+
+(b)
+```{r}
+ y.hat = X%*%b
+
+ (e = y - y.hat)
+```
+
+(c)
+```{r}
+(H = X %*% solve(t(X)%*%X) %*% t(X))
+```
+
+(d)
+```{r}
+ # J matrix
+ n = nrow(t6.27)
+ J = matrix(rep(1, n^2), n, n)
+ # SSR
+ (SSR = t(y) %*% (H - J/n) %*% y)
+```
+
+(e)
+```{r}
+ SSE = t(y)%*%y - t(b)%*%t(X)%*%y
+ MSE = SSE/(nrow(t6.27)-ncol(t6.27))
+
+ (s.sq.b = drop(MSE)*solve(t(X)%*%X))
+```
+
+(f)
+```{r}
+Xh<-rbind(1,10,30)
+t(Xh) %*% b
+```
+
+(g)
+```{r}
+drop(MSE)*(t(Xh)%*%solve(t(X) %*% X)%*%Xh)
+```
+

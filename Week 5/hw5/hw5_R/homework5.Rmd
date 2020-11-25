@@ -1,0 +1,344 @@
+---
+title: "Linear Models and Regression Analysis Homework 5"
+author: "Yifei Dong"
+date: "9/30/2020"
+output: pdf_document
+---
+
+# 0. Data Preparation
+
+```{r}
+setwd("/Users/yifei/Documents/Teachers College/Linear Models and Regression/Week 5/hw5")
+getwd()
+library(dplyr)
+library(ggplot2)
+library(lmtest)
+library(gridExtra)
+library(tinytex)
+library(latex2exp)
+```
+
+# 1. Brand Preference
+
+In a small-scale experimental study of the relation between degree of brand liking
+$(Y)$ and moisture conten $(X_{1})$ and sweetness $(X_{2})$ of the product, the following results were obtained from the experiment based on a completely randomized design (data are coded):
+
+\vspace{12pt}
+
+(a) Obtain the scatter plot matrix and the correlation matrix. What information do these
+diagnostic aids provide here?
+
+```{r}
+# Load data
+mydata <- read.table(paste("http://users.stat.ufl.edu/~rrandles",
+                           "/sta4210/Rclassnotes/data/textdatasets",
+                           "/KutnerData/Chapter%20%206%20Data%20Sets/CH06PR05.txt", 
+                           sep = ""))
+# Rnames variables use dplyr package
+mydata <- mydata %>%
+  rename("Y"=V1, "X1"=V2, "X2"=V3)
+mydata
+```
+
+```{r}
+# Obtain scatter plot matrix and correlation matrix
+attach(mydata)
+cor(mydata)
+pairs(mydata)
+```
+
+
+
+The correlation matrix is:
+
+\begin{equation}
+\begin{matrix}
+Y \\
+X_{1} \\
+X_{2}
+\end{matrix}
+\begin{bmatrix}
+1.000 & 0.892 & 0.395 \\
+0.892 & 1.000 & 0.000 \\
+0.395 & 0.000 & 1.000
+\end{bmatrix}
+\end{equation}
+
+\textbf{ANSWER:} Based on the correlation matrix, there exists a strong positive
+correlation between Y and $X_{1}$, which is 0.892. Also, there exists a positve correlation
+between Y and $X_{2}$, but the relationship is not strong, which is 0.395. Finnaly, there
+is no correlation between $X_{1}$ and $X_{2}$. 
+
+\vspace{12pt}
+
+(b) Fit regression model (6.1) to the data. State the estimated regression function. How is
+$b_{1}$ interpreted here?
+
+```{r}
+reg <- lm(Y~X1+X2)
+summary(reg)
+```
+
+$b_{0}= 37.650$, $b_{1}=4.425$, $b_{2}=4.375$, then the estimated regression function is:
+
+\begin{equation}
+\widehat{Y}=37.650+4.425X_{1}+4.375X_{2}
+\end{equation}
+
+Interpretation of $b_{1}$: For every 1 unit increase in moisture content of the product,
+the degree of brand liking will increase by 4.425 units, keeping sweetness of the product
+fixed.
+
+\vspace{12pt}
+
+(c) Obtain the residuals and prepare a box plot of the residuals. What information does this
+plot provide?
+
+```{r}
+# Obtain residuals
+e <- residuals(reg)
+e
+
+# Box plot of the residuals
+boxplot(e)
+```
+\vspace{12pt}
+
+\textbf{ANSWER:} Based on the box plot of the residuals, the normality assumption of residuals seems hold and there are no outliers.
+
+\vspace{12pt}
+
+(d) Plot the residuals against $\widehat{Y}, X_{1}, X_{2}$, and $X_{1}X_{2}$ on separate
+graphs. Also prepare a normal probability plot. Interpret the plots and summarize your
+findings.
+
+```{r}
+# Obtain fitted values
+y_hat <- predict(reg)
+mydata <- cbind(mydata, e, y_hat)
+```
+
+```{r}
+# Diagnostic Plots
+# Residuals against Y_hat
+g1 <- ggplot(mydata, aes(x = y_hat, y = e))+geom_point(color = "black") + xlab("Fitted")+
+  ylab("Residual")+ggtitle(TeX("(a) Residual Plot against $\\widehat{Y}$"))+
+  geom_hline(yintercept = 0, linetype = "dashed", color="red")
+```
+
+```{r}
+# Residuals against X1
+g2 <- ggplot(mydata, aes(x = X1, y = e)) + geom_point(color = "black")+xlab(TeX("X_{1}"))+
+  ylab("Residual")+ggtitle(TeX("(b) Residual Plot against X_{1}"))+
+  geom_hline(yintercept = 0, linetype="dashed", color="red")
+```
+
+```{r}
+# Residuals against X2
+g3 <- ggplot(mydata, aes(x = X2, y = e)) + geom_point(color = "black")+xlab(TeX("X_{2}"))+
+  ylab("Residual")+ggtitle(TeX("(c) Residual Plot against X_{2}"))+
+  geom_hline(yintercept = 0, linetype="dashed", color="red")
+```
+
+```{r}
+# create interaction term first
+mydata <- mydata %>%
+  mutate(mydata, X1X2 = X1*X2)
+head(mydata, 10)
+```
+
+```{r}
+# Residuals against X1X2
+g4 <- ggplot(mydata, aes(x = X1X2, y = e))+geom_point(color = "black")+xlab(TeX("X_{1}X_{2}"))+
+  ylab("Residual")+ggtitle(TeX("(d) Residual Plot against X_{1}X_{2}"))+
+  geom_hline(yintercept = 0, linetype="dashed", color="red")
+```
+
+```{r}
+# Combine 4 graphs together
+grid.arrange(g1, g2, g3, g4, ncol =2, nrow =2)
+```
+
+\textbf{ANSWER:} The plot (a) of residuals $e$ against the fitted values $\widehat{Y}$ does not suggest
+any systematic deviations from the reponse plane nor the variance of the error terms varies with the
+level of $\widehat{Y}$. Plots of the residuals $e$ against $X_{1}$ and $X_{2}$, in Figure (b) and (c),
+respectively, are entirely consistent with the conclusions of fit by the reponse function and constant
+variance of the error terms. There is also no systematic pattern for the residuals $e$ against the
+interaction term $X_{1}X_{2}$. Hence, no interaction effects reflected. 
+
+\vspace{12pt}
+
+```{r}
+# Normal Probability Plot
+# We first compute the standardized with the rstandard function first
+stdres <- rstandard(reg)
+qqnorm(stdres, xlab="Normal Scores", ylab="Standardized Residuals", main = 
+         "Normal Probability Plot of Residuals")
+qqline(stdres)
+```
+
+```{r}
+# Extra check of normality assumption use Shapiro-Wilk normality test
+shapiro.test(stdres)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} Based on the normal probability plot of residuals, the normality
+assumption does hold. We can also use Shapiro-Wilk normality test to provide additional 
+evidence for the normality. The p-value = 0.9111, which is greater than 0.05. We cannot 
+reject the null hypothesis, therefore, the normality assumption holds.
+
+\vspace{12pt}
+
+(e) Conduct the Breusch-Pagan test for constancy of the error variance, assumig $log \ \sigma_{i}^{2}=\gamma_{0}+\gamma_{1}X_{i1}+\gamma_{2}X_{i2}$; Use $\alpha=.01$ State the alternatives, decision rule, and conclusion.
+
+```{r}
+bptest(reg)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} P-value=0.3599 is not less than 0.01. Do not reject $H_0$: Homoskedasticity. Conclude error variance constant.
+
+\newpage
+
+# 2. Matrix Methods
+
+Assume that regression model (6.1) with indepdent normal error terms is appropriate. Using matrix methods, obtain 
+
+```{r}
+# Load data
+mydata2 <- read.table(paste("http://users.stat.ufl.edu/~rrandles", 
+                            "/sta4210/Rclassnotes/data/textdatasets/KutnerData", 
+                            "/Chapter%20%206%20Data%20Sets/CH06PR27.txt", sep=""))
+mydata2 <- mydata2 %>%
+  rename("y"=V1, "x1"=V2, "x2"=V3)
+mydata2
+```
+
+(a) b
+
+```{r}
+# Creating the observations y and design matrix X
+Y <- mydata2$y
+X <- cbind(rep(1, nrow(mydata2)), mydata2$x1, mydata2$x2)
+```
+
+```{r}
+# X'X
+t(X) %*% X
+# X'Y
+t(X) %*% Y
+# b = (X'X)^(-1)X'Y
+b <- solve(t(X) %*% X) %*% t(X) %*% Y
+b
+```
+
+\begin{equation}
+\begin{bmatrix}
+33.93210 \\
+2.78476 \\
+-0.26442
+\end{bmatrix}
+\end{equation}
+
+\vspace{12pt}
+
+(b) e
+
+```{r}
+# sample size
+n <- nrow(mydata2)
+# Identity Matrix
+I <- diag(rep(1, n))
+# H Matrix = X(X'X)^(-1)X'
+H <- X %*% solve(t(X) %*% X) %*% t(X)
+# Matrix Method for residuals
+(I-H) %*% Y
+```
+
+\begin{equation}
+\begin{bmatrix}
+-2.6996 \\
+-1.2300 \\
+-1.6374 \\
+-1.3299 \\
+-0.0900 \\
+6.9868
+\end{bmatrix}
+\end{equation}
+
+\vspace{12pt}
+
+(c) H
+
+```{r}
+# H Matrix = X(X'X)^(-1)X'
+H <- X %*% solve(t(X) %*% X) %*% t(X)
+H
+```
+
+\begin{equation}
+\begin{bmatrix}
+.2314 & .2517 & .2118 & .1489 & -.0548 & .2110 \\
+.2517 & .3124 & .0944 & .2663 & -.1479 & .2231 \\
+.2118 & .0944 & .7044 & -.3192 & .1045 & .2041 \\
+.1489 & .2663 & -.3192 & .6143 & .1414 & .1483 \\
+-.0548 & -.1479 & .1045 & .1414 & .9404 & .0163 \\
+.2110 & .2231 & .2041 & .1483 & .0163 & .1971
+\end{bmatrix}
+\end{equation}
+
+\vspace{12pt}
+
+(d) SSR
+
+```{r}
+# J matrix
+J <- matrix(rep(1, n^2), n, n)
+# SSR = Y'(H-(1/n)J)Y
+SSR <- t(Y) %*% (H-(J/n)) %*% Y
+SSR
+```
+
+\vspace{12pt}
+
+(e) $s^{2}\{b\}$
+
+```{r}
+# SSE = e'e = Y'Y-Y'Xb
+SSE <- t(Y) %*% Y - t(Y) %*% X %*% b
+MSE <- SSE/(n-3)
+# cov(b)=MSE(X'X)^(-1)
+s.sq.b <- drop(MSE) * solve(t(X) %*% X)
+s.sq.b
+```
+
+\begin{equation}
+\begin{bmatrix}
+715.4711 & -34.1589 & -13.5949 \\
+-34.1589 & 1.6617 & .6441 \\
+-13.5949 & .6441 & .2625
+\end{bmatrix}
+\end{equation}
+
+\vspace{12pt}
+
+(f) $\widehat{Y_{h}}$ when $X_{h1}=10$, $X_{h2}=30$
+
+```{r}
+x.new <- c(1, 10, 30)
+y.hat.h <- t(x.new) %*% b
+y.hat.h
+```
+
+\vspace{12pt}
+
+(g) $s^{2}\{\widehat{Y_{h}}\}$ when when $X_{h1}=10$, $X_{h2}=30$
+
+```{r}
+s.sq.y.hat.h <- drop(MSE)*(t(x.new) %*% solve(t(X) %*% X) %*% x.new)
+s.sq.y.hat.h
+```
+
