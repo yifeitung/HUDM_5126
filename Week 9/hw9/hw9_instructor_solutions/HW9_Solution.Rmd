@@ -1,0 +1,151 @@
+---
+title: "HW9_Solution"
+author: "Chengxuan Hu"
+date: "11/10/2020"
+output: word_document
+---
+
+10.5 on p. 414
+Refer to Brand preference Problem 6.5b.
+```{r}
+t6.5<-read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%206%20Data%20Sets/CH06PR05.txt", header=FALSE)
+ # Column names can be changed with
+ names(t6.5)[1]<-paste("Y")
+ names(t6.5)[2]<-paste("X1")
+ names(t6.5)[3]<-paste("X2")
+ attach(t6.5)
+```
+
+a. Prepare an added-variable plot for each of the predictor variables.
+```{r}
+reg<-lm(Y~.,data=t6.5)
+library(car)
+avPlots(reg)
+
+regYX1=lm(Y~X1)
+regX2X1=lm(X2~X1)
+eYX1 = resid(regYX1)
+eX2X1= resid(regX2X1)
+plot(eX2X1, eYX1)
+regres1 = lm(eYX1 ~ eX2X1)
+abline(regres1)
+
+regYX2=lm(Y~X2)
+regX1X2=lm(X1~X2)
+eYX2 = resid(regYX2)
+eX1X2= resid(regX1X2)
+plot(eX1X2, eYX2)
+regres2 = lm(eYX2 ~ eX1X2)
+abline(regres2)
+
+```
+
+b. Do your plots in part (a) suggest that the regression relatioLlships in the fitted regression function in Prbolem 6.5b are inappropriate for any of the predictor variables? Explain.
+```{r}
+# X2 is useful predictor after including X1 since there is an upward trend.
+# X1 is useful predictor after including X2 since there is an upward trend.
+# The regression relatioLlships in the fitted regression function in Prbolem 6.5b are appropriate for any of the predictor variables.
+```
+
+c. Obtain the fitted regression function in Problem 6.5b by separately regressing both Y and X2 on X1, and then regressing the residuals in an appropriate fashion.
+```{r}
+regYX1=lm(Y~X1)
+summary(regYX1)
+# Y= 50.775+ 4.425*X1
+
+regX2X1=lm(X2~X1)
+summary(regX2X1)
+# X2= 3.000e+00 -2.483e-17*X1
+
+regres = lm(eYX1 ~ eX2X1)
+summary(regres)
+summary(lm(Y~X1+X2))
+# eYX2X1=4.3750*eX2X1
+# The slope is 4.3750, which is the same as b2 in Y ~ X1 + X2
+```
+
+10.9 on p. 415
+a Obtain the studentized deleted residuals and identify any outlying Y observations. Use the
+Bonferroni outlier test procedure with alpha =.10. State the decision rule and conclusion.
+```{r}
+rstudent(reg)
+qt(1-0.1/(2*16),16-3-1)  ## 3.307783
+rstudent(reg)[which(abs(rstudent(reg))>=qt(1-0.1/(2*16),16-3-1))]
+# Decision rule: If abs(rstudent(reg)) > 3.31, it is an outlier.
+# Conclusion: there are no outliers.
+```
+
+b. Obtain the diagonal elements of the hat matrix,and provide an explanation for the pattern in these elements.
+```{r}
+X = cbind(rep(1, nrow(t6.5)), X1, X2)
+H = X%*%solve(t(X)%*%X)%*%t(X)
+diag(H)
+## diag(H) has lower values in the middle and has larger values in both ends because cases with X-levels close to the “center” of the sampled X-levels will have small leverages while cases with “extreme” levels have large leverages.
+```
+
+c. Are any of the observations outlying with regard to their X values according to the rule of thumb stated in the chapter?
+```{r}
+# cut off point:
+2*3/16   ## 0.375
+diag(H)>2*3/16
+# There are no observations outlying with regard to their X values.
+```
+
+d. Management wishes to estimate the mean degree of brand liking for moisture content X1 = 10 and sweetness X2 = 3. Construct a scatter plot of X2 against X1 and determine visually whether this prediction involves an extrapolation beyond the range of the data. Also, use (10.29) to determine whether an extrapolation is involved. Do your conclusions from the two methods agree?
+```{r}
+plot(X1,X2)
+# This prediction involves no extrapolation beyond the range of the data.
+
+X.new=rbind(1,10,3)
+H.new=t(X.new)%*%solve(t(X)%*%X)%*%X.new
+H.new   ## 0.175
+# Since 0.175 is within the range of leverage values, no extrapolation is involved.
+```
+
+e. The largest absolute studentized deleted residual is for case 14. Obtain the DFFITS, DFBETAS, and Cook's distance values for this case to assess the influence of this case. What do you conclude?
+```{r}
+ im=influence.measures(lm(Y ~ X1+X2, data = t6.5))
+# Cut-off point for DFFITS is 
+ 2*sqrt(3/16)                    ## 0.8660254
+ im$infmat[14,4]                 ## -1.173531
+ # Since the DFFITS for case 14 > cut off point for DFFITS, 14th observation is influential.
+ 
+# Cut-off point for DFBETAS is
+ 2/sqrt(16)                      ## 0.5
+ im$infmat[14,1]                 ## 0.8388068
+ im$infmat[14,2]                 ## -0.8076796
+ im$infmat[14,3]                 ## -0.6020088
+ # 14th observation influences b0, b1 and b2.
+
+# Cook's distance cut-off point is
+ qf(0.5, 3, 13)                  ## 0.8315874
+ im$infmat[14,6]                 ## 0.3634123
+ # 14th observation has largest Cook's distance but it is smaller than Cook's distance cut-off point, so there is no influential point.
+```
+
+f. Calculate the average absolute percent difference in the fitted values with and without case 14. What does this measure indicate about the influence of case 14?
+```{r}
+ lm=lm(Y ~ X1+X2, data = t6.5)
+ summary(lm)
+ Yi.hat=predict(lm)
+ Yi.hat
+ ## Y=37.6500+4.4250*X1+4.3750*X2 
+ 
+ lm14=lm(Y ~ X1+X2, data = t6.5[-14,])
+ summary(lm14)
+ Yi14.hat=predict(lm14,newdata=t6.5)
+ Yi14.hat
+ ## Y=35.4139+4.6414*X1+4.7357*X2
+ 
+sum(abs((Yi14.hat- Yi.hat)/ Yi.hat)*100)/16
+## The average absolute percent difference in the fitted values with and without case 14 is 0.677679%
+## Case 14 does not exercise undue influence so that no remedial action is required for handling this case.
+```
+
+g. Calculate Cook's distance Di for each case and prepare an index plot. Are any cases influential according to this measure?
+```{r}
+im=influence.measures(reg)
+im$infmat[,6]
+plot(im$infmat[,6])
+## 14th observation is the most influential among all cases but it is not so influential.
+```

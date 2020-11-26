@@ -1,0 +1,352 @@
+---
+title: "HUDM5126 Linear Models and Regression Analysis Homework 9"
+author: "Yifei Dong"
+date: "10/29/2020"
+output: pdf_document
+---
+
+# 0. Data Preparation
+
+```{r}
+setwd("~/Documents/Teachers College/Linear Models and Regression/Week 9/hw9/hw9_R")
+getwd()
+library(dplyr)
+```
+
+# 1. KNNL 10.5
+
+Refer to \textbf{Brand Preference} Problem 6.5b.
+
+\smallskip
+
+```{r}
+data1 <- read.table(paste("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/",
+                          "textdatasets/KutnerData/Chapter%20%206%20Data%20Sets/CH06PR05.txt", 
+                          sep = ""))
+data1 <- data1 %>%
+  select("Y" = V1, "X1" = V2, "X2" = V3)
+data1
+```
+\smallskip
+
+a. Prepare an added-variable plot for each of the predictor variables.
+
+```{r}
+library(car)
+reg <- lm(Y~X1+X2, data = data1)
+summary(reg)
+avPlots(reg)
+```
+
+b. Do your plots in part (a) suggest that the regression relationships in the fitted regression function in Problem 6.5b are
+inappropriate for any of the predictor variables. Explain.
+
+I see a tilted straight-line scatterplot for both added variable plot of $X_{1}$ controlling for $X_{2}$ and added variable
+plot of $X_{2}$ controlling for $X_{1}$. Therefore, both two variables are important and appropriate.
+
+\vspace{12pt}
+
+c. Obtain the fitted regression function in Problem 6.5b by separately regressing both $Y$ and $X_{2}$ on $X_{1}$, and then
+regressing the residuals in an appropriate fashion.
+
+\smallskip
+
+```{r}
+regYX1 <- lm(Y~X1, data = data1)
+summary(regYX1)
+```
+
+\smallskip
+
+```{r}
+regX2X1 <- lm(X2~X1, data = data1)
+summary(regX2X1)
+```
+
+\smallskip
+
+```{r}
+# Obtain residuals
+eYX1 <- residuals(regYX1)
+eX2X1 <- residuals(regX2X1)
+# Fitting regression of eYX1 v.s eX2X1
+reg2 <- lm(eYX1~eX2X1)
+summary(reg2)
+```
+
+\smallskip
+
+The slope of the regression through the origin of $e_{i}(Y|X_{1})$ on $e_{i}(X_{2}|X_{1})$ is the prartial regression
+coefficient for $X_{2}$. It is the same as the $\beta_{2}$ in the fitted regression function in Problem 6.5b, which is 4.375.
+
+\newpage
+
+# 2. KNNL 10.9
+
+Refer to \textbf{Brand preference} Problem 6.5.
+
+a. Obtain the studentized deleted residuals and identify any outlying $Y$ observations. Use the Bonferroni outlier test procedure with $\alpha = 0.10$. State the decision rule and conclusion.
+
+\smallskip
+
+```{r}
+# Studentized deleted residuals
+library(MASS)
+studres(reg)
+```
+
+Test for outliers (Bonferroni adjustment): Outlier if:
+
+\[
+|t_{i}| \geqslant t \big(1-(\frac{\alpha}{2n}), n-p-1 \big)
+\]
+
+```{r}
+# Cut off point
+(n = nrow(data1)) # 16
+# df = n-p-1 = 16-3-1 = 12
+qt(0.9969, 12)
+# [1] 3.31212
+```
+
+```{r}
+which(abs(studres(reg)) >= 3.31212)
+```
+
+\smallskip
+
+Therefore, we conclude there are no outliers based on the Bonferroni outlier test.
+
+\vspace{12pt}
+
+b. Obtain the diagonal elements of the hat matrix, and provide an explanation for the pattern in these elements.
+
+\smallskip
+
+```{r}
+# We obtain X matrix first
+attach(data1)
+X = cbind(rep(1, nrow(data1)), X1, X2)
+X
+```
+
+```{r}
+# Hat matrix
+H = X %*% solve(t(X) %*% X) %*% t(X)
+# diagonal elements of Hat matrix
+diag(H)
+```
+
+\smallskip
+
+$h_{ii}$ is a measure of the distance between the $X$ values for the $i$th case and the means of the $X$ values for all $n$
+cases. Thus, a large value $h_{ii}$ indicates that the $i$th case is distant from the center of all $X$ observations. The
+diagonal element $h_{ii}$ in this context is called the leverage (in terms of the $X$ values) of the $i$th case. In this case,
+we have two groups of equally influential obervations, which are 0.2375 and 0.1375.
+
+\vspace{12pt}
+
+c. Are any of the observations outlying with regard to their $X$ values according to the rule of thumb stated in the chapter?
+
+\smallskip
+
+```{r}
+# Cut off point
+2*(3/n)
+# [1] 0.375
+```
+
+```{r}
+which(diag(H) > 2*(3/n))
+```
+
+\smallskip
+
+The rule of thumb suggests that points with a hat diagonal element greater than $\frac{2p}{n}$ should be considered 
+high leverage points. Here, $\frac{2p}{n}=0.375$ and no observations outlying with regard to their $X$ values.
+
+\vspace{12pt}
+
+d. Management wishes to estimate the mean degree of brand liking for moisture content $X_{1} = 10$ and sweetness $X_{2} = 3$.
+Construct a scatter plot of $X_{2}$ against $X_{1}$ and determine visually whether this prediction involves an extrapolation
+beyond the range of the data. Also, use (10.29) to determine whether an extrapolation is involved. Do your conclusions from
+the two methods agree?
+
+\smallskip
+
+```{r}
+# scatter plot of X2 against X1
+library(ggplot2)
+g1 <- ggplot(data1, aes(x = X1, y = X2))+
+  geom_point()+
+  geom_point(aes(x = 10, y = 3), color = "red")+
+  annotate("text", label = "new point", x = 9.8, y = 3.2, color = "red")+
+  ggtitle("Scatter plot of X2 against X1")+
+  theme(plot.title = element_text(size = 12, face = "bold", color = "black", hjust = 0.5))
+g1
+```
+
+Based on the scatterplot, the prediction $(X_{1}= 10, X_{2} = 3)$ is not outlying beyond the range of the data.
+
+Recall, to spot hidden extrapolations, we can utilize the direct leverage calculations in (10.18) for the new set of $X$
+values for which inferences are to be made:
+
+\begin{equation}
+h_{\mbox{new.new}} = \mathbf{X}_{\mbox{new}}'(\mathbf{X'X})^{-1}\mathbf{X}_{\mbox{new}}
+\end{equation}
+
+where $\mathbf{X}_{\mbox{new}}$ is the vector containing the X values for which an inference about a mean response or a new
+observation is to be made, and the $\mathbf{X}$ matrix is the one based on the data set used for fitting the regression model.
+If $h_{\mbox{new.new}}$ is well within the range of leverage values $h_{ii}$ for the cases in the data set, no extrapolation
+is involved. On the other hand, if $h_{\mbox{new.new}}$ is much larger than the leverage values for the cases in the data set,
+and extrapolation is indicated.
+
+\vspace{12pt}
+
+```{r}
+# Obtain X vector
+Xnew <- rbind(1, 10, 3)
+# h new new
+hnewnew <- t(Xnew) %*% solve(t(X) %*% X) %*% Xnew
+hnewnew
+```
+
+Since $h_{\mbox{new.new}} = 0.175$ is well within the range of leverage values $h_{ii}$ for the cases in the data set, I
+conclude no extrapolation is involved.
+
+\vspace{12pt}
+
+e. The largest absolute studentized deleted residual is for case 14. Obtain the \textbf{DFFITS}, \textbf{DFBETAS}, and Cook's 
+distance values for this case to assess the influence of this case. What do you conclude?
+
+\smallskip
+
+```{r}
+# First, find the largest absolute studentized deleted residual
+which.max(abs(studres(reg))) # confirm case 14
+```
+
+```{r}
+# Built-in function for influential observations
+im = influence.measures(reg)
+im
+```
+
+
+```{r}
+# Obtain DFFITS, DFBETAS and Cook's distance values for this case
+# DFFITS
+im$infmat[14, 4]
+```
+
+```{r}
+# We have a small sized data set, the cut off point for DFFITS can be 1
+abs(im$infmat[14, 4]) > 1
+```
+
+This value is somewhat larger than our guideline of 1, we might consider the observation to be influential. However, the value
+is close enough to 1 that the case may not be influential enough to require remedial action.
+
+```{r}
+# DFBETAS
+# b0
+im$infmat[14, 1]
+# b1
+im$infmat[14, 2]
+# b2
+im$infmat[14, 3]
+```
+
+```{r}
+# Cut-off point for DFBETAS is
+(co.dfb = 2/sqrt(n))
+```
+
+```{r}
+# check if case 14 influences b0
+abs(im$infmat[14, 1]) > co.dfb
+# check if case 14 influences b1
+abs(im$infmat[14, 2]) > co.dfb
+# check if case 14 influences b2
+abs(im$infmat[14, 3]) > co.dfb
+```
+
+We conclude that 14th observation does influence both $\beta_{1}$ and $\beta_{2}$ if we use cut off point $\frac{2}{n}$.
+However, the textbook recommend considering a case influential if the absoulte value of \textbf{DFBETAS} exceeds 1 for small
+to medium data sets and $\frac{2}{n}$ for large data sets (p.405). For this small data set, it looks that the \textbf{DFBETAS}
+values do not exceed 1 so that case 14 may not be so influential. 
+
+\vspace{12pt}
+
+
+```{r}
+# Cook's distance
+im$infmat[14, 6]
+# cut off point for Cook's distance
+qf(0.5, 3, 13)
+```
+
+14th observation's Cook's distance is 0.3634, which is smaller than the cut off point 0.8316. This case may not be very
+influential.
+
+\vspace{12pt}
+
+f. Calculate the average absolute percent difference in the fitted values with and without case 14. What does this measure
+indicate about the influence of case 14?
+
+```{r}
+# Fitted values with case 14
+fit1 <- fitted(reg)
+fit1
+```
+
+```{r}
+# Fitted values without case 14
+reg2 <- lm(Y~X1+X2, data = data1[-14, ])
+fit2 <- predict(reg2, newdata = data1)
+fit2
+```
+
+```{r}
+# average absolute percent difference
+sum(abs((fit2-fit1)/fit1)*100)/n
+```
+
+This mean difference is 0.68%. On the basis of this direct evidence about the effect of case 14 on the inferences to be made,
+it was satisfied that case 14 does not exercise undue influence so that no remedial action is required for handling this case.
+
+\vspace{12pt}
+
+g. Calculate Cook's distance $D_{i}$ for each case and prepare an index plot. Are any cases influential according to this measure?
+
+\smallskip
+
+```{r}
+# Extract Cook's distance for each case
+data2 <- as.data.frame(im$infmat[, 6])
+# change colum names
+data2 <- data2 %>%
+  dplyr::select("Di" = `im$infmat[, 6]`)
+data2
+```
+
+```{r}
+# Create index
+index = seq(1, 16, by = 1)
+data2 <- cbind(data2, index)
+```
+
+```{r}
+# Prepare an index plot
+g2 <- ggplot(data2, aes(x = as.factor(index), y = Di, label = row.names(data2)))+
+  geom_point()+
+  geom_text(hjust = -0.2, nudge_x = 0.05)+
+  geom_line(group = 1)+
+  scale_x_discrete("Case Index")+
+  scale_y_continuous("Di", breaks = seq(0, 0.4, by = 0.05))+
+  ggtitle("Cook's Distance")+
+  theme(plot.title = element_text(size = 12, face = "bold", color = "black", hjust = 0.5))
+g2
+```
+
+No other case influential based on this measure. Case 14 has the highest Cook's distance value, and then case 15 and case 4.
