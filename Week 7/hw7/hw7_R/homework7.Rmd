@@ -1,0 +1,281 @@
+---
+title: "HUDM 5126 Linear Models and Regression Analysis Homework 7"
+author: "Yifei Dong"
+date: "10/14/2020"
+output: pdf_document
+---
+
+# 0. Data Preparation
+
+```{r}
+setwd("/Users/yifei/Documents/Teachers College/Linear Models and Regression/Week 7/hw7")
+getwd()
+library(dplyr)
+library(ggplot2)
+library(latex2exp)
+```
+
+# 1. Grade Point Average (Q 8.16)
+
+Refer to \textbf{Grade point average} Problem 1.19. An assistant to the director of 
+admissions conjectured that the predictive power of the model could be improved by adding 
+information on whether the student had chosen a major field of concentration at the time the
+application was submitted. Assume that regression model (8.33) is appropriate, where $X_{1}$
+is entrance test score and $X_{2}=1$ if student had indicated a major filed of concentration
+at the time of application and 0 if the major filed was undecided. 
+
+\vspace{12pt}
+
+```{r}
+# Read Grade Point Average data first
+data1 <- read.table(paste("http://users.stat.ufl.edu/",
+                          "~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData", 
+                         "/Chapter%20%201%20Data%20Sets/CH01PR19.txt", sep=""), 
+                    header = FALSE)
+data1 <- data1 %>%
+  select("Y"=V1, "X1"=V2)
+head(data1, 10) # check first 10 observations
+```
+
+
+```{r}
+# Read X2 dataset
+data2 <- read.table(paste("http://users.stat.ufl.edu/", 
+                          "~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData", 
+                          "/Chapter%20%208%20Data%20Sets/CH08PR16.txt", sep=""), 
+                    header = FALSE)
+data2 <- data2 %>%
+  select("X2"=V1)
+head(data2, 10)
+```
+
+
+```{r}
+# Combine two datasets
+mydata <- cbind(data1, data2)
+head(mydata, 10)
+```
+
+\vspace{12pt}
+
+a. Explain how each regression coefficient in model (8.33) is interpreted here.
+
+Recall the model 8.33:
+
+\begin{equation}
+Y_{i}=\beta_{0}+\beta_{1}X_{i1}+\beta_{2}X_{i2}+\varepsilon_{i}
+\end{equation}
+
+where $X_{1i}$ stands for the ACT test score, and $X_{2i}$ stands for whether student had chosen a major filed of concentration at the time the application was submitted. 
+
+If model 8.33 is applied, $\beta_{0}$ stands for the Y intercept for student who have not 
+chosen the major field. We see that student's GPA is a linear function of ACT scores
+($X_{1}$), with the same slope $\beta_{1}$ for both types of students. $\beta_{2}$ indicates
+how much higher(lower) the response function for student who had chosen a major field of
+concentration at the time the application was submitted than student who had not chosen a
+major field of concentration, for any given ACT scores. Thus, $\beta_{2}$ measures the 
+differential effect of type of student. The Y intercept for students who had chosen a major 
+field is $\beta_{0}+\beta_{2}$. In general, $\beta_{2}$ shows how much higher(lower) the 
+mean response line is for the student coded 1 than the line for the student coded 0, for any given level of $X_{1}$.
+
+\vspace{12pt}
+
+```{r}
+attach(mydata)
+# Let's visualize the model
+g1 <- ggplot(mydata, aes(x = X1, y = Y, color = factor(X2)))+
+  geom_point()+geom_smooth(method=lm, se=FALSE)+
+  scale_x_continuous("ACT Scores")+scale_y_continuous("Grade Point Average")+
+  ggtitle("Regression Model with indicator Variavles")+
+  theme(plot.title = element_text(color = "black", size = 12, face = "bold", hjust = 0.5))+
+  scale_colour_discrete(name="Declared a major filed", labels=c("No", "Yes"))
+g1
+```
+
+\vspace{12pt}
+
+b. Fit the regression model and state the estimated regression function.
+
+```{r}
+# Fit the regression model
+reg1 <- lm(Y~X1+X2)
+summary(reg1)
+```
+
+So the estimated regression function is:
+
+\begin{center}
+$\widehat{Y_{i}}=2.1984+0.0379X_{i1}-0.0943X_{i2}$
+\end{center}
+
+\vspace{12pt}
+
+c. Test whether the $X_{2}$ variable can be dropped from the regression model; use
+$\alpha=.01$.State the alternatives, decision rule, and conclusion.
+
+```{r}
+reg2 <- lm(Y~X1)
+anova(reg2, reg1)
+```
+
+\begin{center}
+$H_{0}: \beta_{2}=0$
+
+$H_{1}: \beta_{2} \neq 0$
+\end{center}
+
+And the t-statistic is:
+
+\begin{center}
+$t^*=\frac{b_{2}}{s\{b_{2}\}}$
+\end{center}
+
+```{r}
+# Check partial F-statistics
+qf(.99, df1=1, df2=117)
+```
+
+The decision rule is, if $|t^*|\leq t(1-\alpha/2, n-p)$, conclude $H_{0}$, otherwise, 
+conclude $H_{1}$. Since the p-value of the t test is $0.43341>.01$, we cannot reject the 
+null hypothesis. There we conclude that $X_{2}$ can be dropped from the regression model. We
+could use partial F-statistics as well, $F^*=0.6179 < 6.8566$, therefore, we cannot reject null hypothesis.
+
+\vspace{12pt}
+
+d. Obtain the residuals for regression model (8.33) and plot them against $X_{1}X_{2}$. Is 
+there any evidence in your plot that it would be helpful to include an interaction term in
+the model?
+
+```{r}
+# Obtain residuals and generate X1X2
+e <- residuals(reg1)
+X1X2 <- X1*X2
+mydata <- cbind(mydata, e, X1X2)
+head(mydata, 10)
+```
+
+\vspace{12pt}
+
+```{r}
+# Residuals against X1X2
+g2 <- ggplot(mydata, aes(x = X1X2, y = e))+
+  geom_point(color="black")+xlab(TeX("X_{1]X_{2}"))+
+  ylab("Residuals")+ggtitle(TeX("Resdiauls against X_{1}X_{2}"))+
+  theme(plot.title = element_text(color = "black", face = "bold", size = 12, hjust = 0.5))+
+  geom_hline(yintercept = 0, color="red", linetype=1)
+g2
+```
+
+\vspace{12pt}
+
+According to the residuals against $X_{1}X_{2}$ plot, I find there is a systematic pattern 
+when $X_{2}=1$. There is a positive relationship between $X_{1}X_{2}$ and residuals when
+$X_{2}=1$ (See graph below, which uses the simple linear model to fit the relationship
+between $X_{1}X_{2}$ and residuals when $X_{2}=1$, other methods may even better).
+
+\vspace{12pt}
+
+```{r}
+g3 <- ggplot(mydata, aes(x = X1X2, y = e, color=factor(X2)))+
+  geom_point(color="black")+xlab(TeX("X_{1]X_{2}"))+
+  ylab("Residuals")+ggtitle(TeX("Resdiauls against X_{1}X_{2}"))+
+  theme(plot.title = element_text(color = "black", face = "bold", size = 12, hjust = 0.5))+
+  stat_smooth(method = "lm", formula=y~x, se=FALSE)+
+  scale_color_discrete(name="Declared a major filed", labels=c("Yes", "No"))+
+  geom_hline(yintercept = 0, color="red", linetype=1)
+g3
+```
+
+\newpage
+
+# Continued: Grade Point Average (Q 8.20)
+
+a. Fit regression model (8.49) and state the estimated regression model.
+
+Recall the model 8.49:
+
+\begin{equation}
+Y_{i}=\beta_{0}+\beta_{1}X_{i1}+\beta_{2}X_{i2}+\beta_{3}X_{i1}X_{i2}+\varepsilon_{i}
+\end{equation}
+
+```{r}
+reg3 <- lm(Y~X1*X2)
+summary(reg3)
+```
+
+\vspace{12pt}
+
+So the estimated regression function is:
+
+\begin{center}
+$\widehat{Y_{i}}=3.2263-0.0028X_{i1}-1.6496X_{i2}+0.0622X_{i1}X_{i2}$
+\end{center}
+
+\vspace{12pt}
+
+b. Test whether the interaction term can be dropped from the model; use $\alpha=.05$. State 
+the alternatives, decision rule, and conclusion. If the interaction term cannot be dropped 
+from the model, describe the nature of the interaction effect.
+
+\begin{center}
+$H_{0}: \beta_{3}=0$
+
+$H_{1}: \beta_{3} \neq 0$
+\end{center}
+
+And the t-statistic is:
+
+\begin{center}
+$t^*=\frac{b_{3}}{s\{b_{3}\}}$
+\end{center}
+
+```{r}
+anova(reg1, reg3)
+```
+
+\vspace{12pt}
+
+The decision rule is, if $|t^*|\leq t(1-\alpha/2, n-p)$, conclude $H_{0}$, otherwise,
+conclude $H_{1}$. Since the p-value of t-test is 0.0205, which is smaller than .05.
+Therefore, we reject the null hypothesis $H_{0}$ and conclude that the interaction term
+cannot be dropped from the model.
+
+Alternatively, we can use partial F test. 
+
+\begin{center}
+$H_{0}:\beta_{q}=\beta_{q+1}=...=\beta_{p-1}=0$
+
+$H_{1}:$ not all of the $\beta_{k}$ in $H_{0}$ equal 0
+\end{center}
+
+In this case, we only test $\beta_{3}$, therefore, $q=3$. The test is a single regression 
+coefficient equal zero.
+
+$SSR(X_{1}X_{2}|X_{1},X_{2})=2.0713$, $SSE(X1, X2, X_{1}X_{2})=43.506$. The equation for test statistic is:
+
+\begin{equation}
+F^*=\frac{SSR(X_{1}X_{2}|X_{1},X_{2})}{p-q} \div \frac{SSE(X1, X2, X_{1}X_{2})}{n-p}
+\end{equation}
+
+The decision rule is, if $F^* \leq F(p-q, n-p)$, conclude $H_{0}$, otherwise, conclude $H_{1}$.
+
+```{r}
+# check F-statistics
+qf(.95, df1=1, df2=116)
+```
+
+\vspace{12pt}
+
+therefore, $F^*=\frac{2.0713}{4-3} \div \frac{43.506}{120-4}=\frac{2.0713*116}{43.506}=5.5227$, which matches the result we 
+calculated from using anova built in command. Since F-Statistics is larger than 3.9229, we 
+conclude $H_{1}$.
+
+The Y intercept is $\beta_{0}=3.2263$ and the slope is $\beta_{1}=-.0028$ for the response
+function for student who haven't chosen major field. The response function for student who
+had chosen a major field of concentration has Y intercept 
+$\beta_{0}+\beta_{2}=3.2263-1.6496=1.5767$, and slope 
+$\beta_{1}+\beta_{3}=-0.00276+0.06225=0.0595$. We see that $\beta_{2}$ here indicates how 
+much smaller is the Y intercept of the response function for student coded 1 than that for 
+the student coded 0. Similarly, $\beta_{3}$ indicates how much greater is the slope of the 
+response function for the student coded 1 than student coded 0 (the difference in slope
+between two groups). 

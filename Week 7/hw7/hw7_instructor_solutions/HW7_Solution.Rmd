@@ -1,0 +1,83 @@
+---
+title: "HW7"
+author: "Chengxuan Hu"
+date: "10/19/2020"
+output: word_document
+---
+
+```{r}
+# Q 8.16 on p. 337
+# Table 1.19
+t1.19 <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%201%20Data%20Sets/CH01PR19.txt", header = FALSE)
+t8.16 <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%208%20Data%20Sets/CH08PR16.txt",header = FALSE)
+# Column names can be changed with
+names(t1.19)[2]<-paste("x1")
+names(t1.19)[1]<-paste("y")
+names(t8.16)<-paste("x2")
+data<-cbind(t1.19,t8.16)
+attach(data)
+```
+
+```{r}
+# a.
+model12=lm(y~x1+x2)
+summary(model12)
+# Interpretation:
+# b0: intercept, no real meaning since x1 cannot be 0
+# b1: When the entrance test score increases by one point, the point estimate of the mean freshman GPA for students increases by 0.03789.
+# b2: Difference between whether student had indicated a major field of concentration at the time of application or not, controlling for ACT
+```
+
+```{r}
+# b.
+model12=lm(y~x1+x2)
+summary(model12)
+# y = 2.19842 + 0.03789*x1 -0.09430*x2
+```
+
+```{r}
+# c.
+model1=lm(y~x1)
+anova(model12,model1)
+```
+
+```{r}
+# H0:b2=0
+# Ha:b2≠0
+# Decision rule: p-value=0.4334 > 0.01 ## if p-value > 0.01, do not reject H0
+# Conclusion: do not reject H0, X2 variable can be dropped from the regression model
+```
+
+```{r}
+# d.
+x1x2=x1*x2
+e=resid(model12)
+plot(x1x2,e)
+
+library(ggplot2)
+plot <- ggplot(data = data, aes(x = x1x2, y = e, colour = factor(x2)))
+plot + stat_smooth(method=lm, se = F) + geom_point()
+# The pattern looks like straight line, so the interaction should be included.
+```
+
+```{r}
+# Q 8.20 on p. 338
+# a.
+model3=lm(y~x1*x2)
+summary(model3)
+# y = 3.226318 - 0.002757*x1 - 1.649577*x2 + 0.062245*x1x2
+```
+
+```{r}
+# b.
+# H0:b3=0
+# H0:b3≠0
+# Decision rule: p-value = 0.0205 < 0.05  ## if p-value < 0.05, reject H0
+# Conclusion: Since interaction p-value = 0.0205 < 0.05, reject H0
+# The interaction effect is significant
+# That is, interaction term cannot be dropped from the model.
+
+#The nature of the interaction effect: Interaction effects occur when the effect of an independent variable on a dependent variable changes, depending on the value(s) of one or more other independent variables.
+# That is, difference between whether student had indicated a major field of concentration at the time of application or not depends on ACT, controlling for ACT.
+```
+
