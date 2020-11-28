@@ -1,0 +1,203 @@
+---
+title: "HUDM 5126 Linear Models and Regression Analysis Homework 6"
+author: "Yifei Dong"
+date: "10/7/2020"
+output: pdf_document
+---
+
+# 0. Data Preparation
+
+```{r}
+library(dplyr)
+library(rsq)
+```
+
+\vspace{12pt}
+
+# 1. Commerical Properties
+
+Refer to \textbf{Commercial properties} Problems 6.18
+
+a). Obtain the analysis of variance tables that decomposes the regression sum of squares
+into extra sum of squares associated with $X_{4}$; with $X_{1}$, given $X_{4}$; with
+$X_{2}$,given $X_{1}$ and $X_{4}$; and with $X_{3}$, given $X_{1}$, $X_{2}$ and $X_{4}$.
+
+```{r}
+# Load data
+mydata <- read.table(paste("http://users.stat.ufl.edu", 
+                           "/~rrandles/sta4210/Rclassnotes", 
+                           "/data/textdatasets/KutnerData", 
+                           "/Chapter%20%206%20Data%20Sets/CH06PR18.txt", sep=""))
+
+# Rename variales us deplyr package
+mydata <- mydata %>%
+  rename("Y"=V1, "X1"=V2, "X2"=V3, "X3"=V4, "X4"=V5)
+head(mydata, 10) # Check the first 10 rows of dataset
+```
+```{r}
+attach(mydata)
+reg1234 <- lm(Y~X1+X2+X3+X4)
+anova(reg1234)
+```
+
+$SSR(X_{1}, X_{2}, X_{3}, X_{4})=98.231$
+
+```{r}
+reg4 <-lm(Y~X4)
+anova(reg4)
+```
+
+$SSR(X_{4})=67.775$
+
+```{r}
+reg41 <- lm(Y~X4+X1)
+anova(reg41)
+```
+
+$SSR(X_{1}| X_{4})=42.275$
+
+```{r}
+reg142 <- lm(Y~X1+X4+X2)
+anova(reg142)
+```
+
+$SSR(X_{2}|X_{1},X_{4})=27.857$
+
+```{r}
+reg1243 <-lm(Y~X1+X2+X4+X3)
+anova(reg1243)
+```
+
+$SSR(X_{3}|X_{1},X_{2},X_{4})=0.420$
+
+\vspace{12pt}
+
+b). Test whether $X_{3}$ can be dropped from the regression model given that $X_{1}$, $X_{2}$ and $X_{4}$ are retained. Use the $F^*$ test statistic and level of significance .01. State the alternatives, decision rule, and conclusion. What is the P-value of the test?
+
+```{r}
+anova(reg1243)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} $H_{0}: \beta_{3}=0$ and $H_{a}: \beta_{3} \neq 0$. Partial F-statistic is
+$F^*=0.3248$ and corresponding P-value=0.5704, which is greater than 0.01. Therefore, we
+cannot reject the null hypothesis and conclude that $X_{3}$ is not significant and can be
+dropped from the regression model given that $X_{1}$, $X_{2}$ and $X_{4}$ are retained.
+
+\newpage
+
+# 2. Continue: Commerical Properties
+
+Refer to \textbf{Commerical properties} Problem 6.18 and 7.7. Calculate $R^2_{Y4}, R^2_{Y1}$, $R^2_{Y1|4}, R^2_{14}, R^2_{Y2|14}, R^2_{Y3|124}$ and $R^2$. Explain what each coefficient measures and interpret your results. How is the degree of marginal linear association between $Y$ and $X_{1}$ affected, when adjusted for $X_{4}$?
+
+```{r}
+summary(reg4)
+anova(reg4)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} $R^2_{Y4}=\frac{67.775}{67.775+168.782}=0.2865$. This means that 28.65% of variation in Y can be explained by $X_{4}$.
+
+\vspace{12pt}
+
+```{r}
+reg1 <-lm(Y~X1)
+summary(reg1)
+anova(reg1)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} $R^2_{Y1}=\frac{14.819}{14.819+221.739}=0.0626$. This means that 6.26% of variation in Y can be explained by $X_{1}$.
+
+\vspace{12pt}
+
+$R^2_{Y1|4}=\frac{SSE(X_{4})-SSE(X_{1}, X_{4})}{SSE(X_{4})}=\frac{SSR(X_{1}|X_{4})}{SSE(X_{4})}$
+
+\vspace{12pt}
+
+```{r}
+rsq.partial(reg41,reg4)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} $R^2_{Y1|4}=0.2505$. This measure is the coefficient of partial
+determination between $Y$ and $X_{1}$, given that $X_{4}$ is in the model. Thus, this
+measures the proportionate reduction in the variation in Y remaining after $X_{4}$ is
+included in the model that is gained by also including $X_{1}$ in the model, which is
+25.05%.
+
+\vspace{12pt}
+
+```{r}
+summary(reg41)
+```
+
+```{r}
+anova(reg41)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} $R^2_{14}=0.4652$ This measures the variation of Y that can be determined
+by $X_{1}$ and $X_{4}$ together, which is 46.52%. To calculate it manually, this is
+equivalent to $(67.775+42.275)/(67.775+42.275+126.508)=0.4652$
+
+\vspace{12pt}
+
+$R^2_{Y2|14}=\frac{SSE(X_{1},X_{4})-SSE(X_{1},X_{4},X_{2})}{SSE(X_{1},X_{4})}=\frac{SSR(X_{2}|X_{1},X_{4})}{SSE(X_{1},X_{4})}$
+
+\vspace{12pt}
+
+```{r}
+reg14 <-lm(Y~X1+X4)
+rsq.partial(reg142,reg14)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} $R^2_{Y2|14}=0.2202$ This measures is the coefficient of partial
+determination between $Y$ and $X_{2}$, given that $X_{1}$ and $X_{4}$ is in the model. Thus,
+this measures the proportionate reduction in the variation in Y remaining after $X_{1}$ and
+$X_{4}$ is included in the model that is gained by also including $X_{2}$ in the model,
+which is 22.02%.
+
+\vspace{12pt}
+
+$R^2_{Y3|124}=\frac{SSE(X_{1},X_{2},X_{4})-SSE(X_{1},X_{2},X_{4},X_{3}))}{SSE(X_{1},X_{2},X_{4})}=\frac{SSR(X3|X_{1},X_{2},X_{4})}{SSE(X_{1},X_{2},X_{4})}$
+
+\vspace{12pt}
+
+```{r}
+reg124 <-lm(Y~X1+X2+X4)
+rsq.partial(reg1243,reg124)
+```
+
+\vspace{12pt}
+
+\textbf{ANSWER:} $R^2_{Y3|124}=0.0043$. This measure is the coefficient of partial
+determination between $Y$ and $X_{3}$, given that $X_{1}, X_{2}$ and $X_{4}$ is in the
+model. Thus, this measures the proportionate reduction in the variation in Y remaining after
+$X_{1}, X_{2}$ and $X_{4}$ is included in the model that is gained by also including $X_{3}$
+in the model, which is only 0.425%.
+
+\vspace{12pt}
+
+```{r}
+summary(reg1234)
+```
+
+\vspace{12pt}
+
+$R^2=0.5847$ This measures the variation of Y that can be explained by $X_{1}, X_{2}, X_{3}$
+and $X_{4}$ together, which is 58.47%.
+
+How is the degree of marginal linear association between $Y$ and $X_{1}$ affected, when
+adjusted for $X_{4}$?
+
+\textbf{ANSWER:} The degree of marginal linear association between $Y$ and $X_{1}$, when
+adjusted for $X_{4}$ is $R^2_{Y1|4}=25.05\%$.
+

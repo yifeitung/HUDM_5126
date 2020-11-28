@@ -1,0 +1,85 @@
+---
+title: "5126HW6"
+author: "Chengxuan Hu"
+date: "10/14/2020"
+output: word_document
+---
+
+7.7 on p. 289
+```{r}
+ # Read Table6.18
+ t6.18<-read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%206%20Data%20Sets/CH06PR18.txt", header=FALSE)
+ # Column names can be changed with
+ names(t6.18)[1]<-paste("Y")
+ names(t6.18)[2]<-paste("X1")
+ names(t6.18)[3]<-paste("X2")
+ names(t6.18)[4]<-paste("X3")
+ names(t6.18)[5]<-paste("X4")
+ 
+ # To use the column names without reference to t6.18 you need to attach the dataset:
+ attach(t6.18)
+```
+
+a Obtain the analysis of variance table that decomposes the regression sum of squares into extra sums of squares associated with X4; with X1 given X4; with X2, given X1, and X4; and with X3, given X1 X2 and X4.
+```{r}
+reg4123 = lm(Y ~ X4 + X1 + X2 + X3)
+anova(reg4123)
+# SSR(X4) = 67.775
+# SSR(X1|X4) = 42.275
+# SSR(X2|X1,X4) = 27.857
+# SSR(X3|X1,X2,X4) = 0.420
+```
+
+b. Test whether X3 can be dropped from the regression model given that X1, X2 and X4 are retained.
+Use the F* test statistic and level of significance .01. State the alternatives, decision rule, and conclusion. What is the p-value of the test?
+```{r}
+reg412 = lm(Y ~ X4 + X1 + X2)
+anova(reg412, reg4123)
+
+qf(0.99,1,76)
+
+# H0: b3 = 0 
+# Ha: b3 ≠ 0
+# Decision rule: if F*>critical value, reject H0 
+              ## if p-value < 0.01, reject H0
+# Conlusion: F*=0.3248 < qf(0.99,1,76)=6.980578, do not reject H0, that is X3 can be dropped from the regression model given that X1, X2 and X4 is retained.
+# p-value = 0.5704 > 0.01, do not reject H0
+```
+
+Refer to Commercial properties Problems 6.18 and 7.7. Calculate R^2(Y4), R^2(Y1),  R^2(Y1|4), R^2(14), R^2(Y2|14), R^2(3|124), and R^2. Explain what each coefficient measures and interpret your results. How is the degree of marginal linear association between Y and X1 affected, when adjusted for X4?
+```{r}
+library(rsq)
+
+reg4 = lm(Y ~ X4)
+rsq.partial(reg4)
+# R^2(Y4)=0.2865058, that is proportion of Variation in Y explained by X4 is 28.65%
+
+reg1 = lm(Y ~ X1)
+rsq.partial(reg1)
+# R^2(Y1)=0.06264236, that is proportion of Variation in Y explained by X1 is 6.26%
+
+reg41 = lm(Y ~ X4 + X1)
+rsq.partial(reg41, reg4)
+# R^2(Y1|4)=0.2504679, that is proportion of Variation in Y not explained by X4 , that is explained by X1 is 25.05%
+
+(cor(X1,X4))^2
+# R^2(14)=0.08328044, that is the square of the correlation between X1 and X4 is 0.08. They are weakly correlated.
+
+reg412 = lm(Y ~ X4 + X1 + X2)
+rsq.partial(reg412, reg41)
+# R^2(Y2|14)=0.2202037, that is proportion of Variation in Y not explained by X4 and X1 but explained by X2 is 22.02%
+
+rsq.partial(reg4123, reg412)
+# R^2(Y3|124)=0.004254889, that is proportion of Variation in Y not explained by X4, X1 and X2 but explained by X3 is 0.43%
+
+summary(reg4123)
+# R^2=0.5847, that is proportion of Variation in Y explained by X1, X2, X3and X4 is 58.47%
+```
+
+How is the degree of marginal linear association between Y and X1 affected, when adjusted for X4?
+```{r}
+# R^2(Y1)=0.06264236
+# R^2(Y1|4)=0.2504679
+# Therefore, the degree of marginal linear association between Y and X1 increases when adjusted for X4.
+```
+
