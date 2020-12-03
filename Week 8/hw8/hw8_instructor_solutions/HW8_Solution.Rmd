@@ -1,0 +1,212 @@
+---
+title: "5126HW6"
+author: "Chengxuan Hu"
+date: "10/27/2019"
+output:
+  word_document: default
+  html_document: default
+---
+
+Exercise 9.15 on p. 378
+```{r}
+## Read data
+Data<-read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%209%20Data%20Sets/CH09PR15.txt",header=FALSE)
+
+ names(Data)[1]<-paste("Y")
+ names(Data)[2]<-paste("X1")
+ names(Data)[3]<-paste("X2")
+ names(Data)[4]<-paste("X3")
+ 
+ attach(Data)
+ 
+ X11=X1^2
+ X22=X2^2
+ X33=X3^2
+ X12=X1*X2
+ X13=X1*X3
+ X23=X2*X3
+ 
+ data<-cbind(X1,X2,X3,X11,X22,X33,X12,X13,X23,Y)
+ data<-as.data.frame(data)
+ attach(data)
+```
+
+```{r}
+# 1.a)
+pairs(Data)
+cor(Data)
+# It suggests that Y and X1 are negatively related, Y and X2 are negatively related, and Y and X3 are positively related.
+```
+
+```{r}
+# b)
+model1<-lm(Y~X1+X2+X3)
+summary(model1)
+# the model is Y= 120.0473-39.9393*X1-0.7368*X2+0.7764*X3
+# All predictors are significant(99.9%).
+```
+
+```{r}
+# c)
+# install.packages("bestglm")
+library(bestglm)
+
+bs1 <- bestglm(Xy = data, 
+               family = gaussian,
+               IC = "BIC")
+
+bs1$Subsets[which(bs1$Subsets$BIC %in% sort(bs1$Subsets$BIC)[1:2]),]
+## The best two models are Model4:the one including X1,X2,X3 and X1*X2
+##                     and Model5:the one including X1,X2,X3,X3^2 and X1*X2
+
+plot(0:9, bs1$Subsets$BIC, type = "b", ylab = "BIC",
+     xlab = "Number of Covariates", lwd = 3, pch = 19, main = "BIC", cex.main = 2)
+## Model4 which includes X1,X2,X3 and X1*X2 has lowest BIC value while Model0 which only contains intercept has highest BIC value.
+
+bs1$BestModel
+## The best model is Y=181.6978 -95.5593*X1 -1.7536*X2 +0.7951*X3 +0.8620*X1*X2
+fit1<-lm(Y~X1+X2+X3+X33+X12)
+summary(fit1)
+## The second best model is Y= 103.97280 -93.35747 *X1 -1.64122*X2 +2.77202*X3-0.01299*X3^2 +0.80433*X1*X2
+
+
+######### Another method #########
+bs1$BestModels[which(bs1$BestModels$Criterion %in% sort(bs1$BestModels$Criterion)[1:2]),]
+# The best model is model with X1, X2, X3 and X1*X2
+# The second best model is model with X1,X3,X1^2 and X2*X3
+lm(Y ~ X1+X3+X11+X23)
+```
+
+```{r}
+# d)
+bs2 <- bestglm(Xy = data, 
+               family = gaussian,
+               IC = "AIC")
+
+bs2$Subsets[which(bs2$Subsets$AIC %in% sort(bs2$Subsets$AIC)[1:2]),]
+## The best two models are Model5:the one including X1,X2,X3,X3^2 and X1*X2
+##                     and Model4:the one including X1,X2,X3 and X1*X2
+
+plot(0:9, bs2$Subsets$AIC, type = "b", ylab = "AIC",
+     xlab = "Number of Covariates", lwd = 3, pch = 19, main = "AIC", cex.main = 2)
+## Model5 which includes X1,X2,X3,X3^2 and X1*X2 has lowest AIC value while Model0 which contains only intercept has highest AIC value.
+
+bs2$BestModel
+## The best model is Y= 103.97280 -93.35747 *X1 -1.64122*X2 +2.77202*X3-0.01299*X3^2 +0.80433*X1*X2
+fit2<-lm(Y~X1+X2+X3+X12)
+summary(fit2)
+## The second best model is Y=181.6978 -95.5593*X1 -1.7536*X2 +0.7951*X3 +0.8620*X1*X2
+
+## Best and second best models are these two models, but the ranking is different, which means the best model according BIC is the second best of AIC while the best model of AIC is the second best model of BIC.
+
+
+######### Another method #########
+bs2$BestModels[which(bs2$BestModels$Criterion %in% sort(bs2$BestModels$Criterion)[1:2]),]
+# The best model is model with X1, X2, X3, X3^2 and X1*X2
+# The second best model is model with X1, X2, X3 and X1*X2
+lm(Y ~ X1+X2+X3+X12)
+```
+
+```{r}
+# e)
+X<-cbind(X1,X2,X3,X11,X22,X33,X12,X13,X23)
+bs3<-leaps(X,Y,method="adjr2",names=names(data)[1:9])
+
+
+bs3$which[which(bs3$adjr2 %in% sort(bs3$adjr2,decreasing=TRUE)[1:2]),]
+## The best two model: Model including X1,X2,X3,X3^2and X1*X2
+##                 and Model including X1,X3,X1^2,X2^2,X3^2 and X2*X3.
+
+
+bs3$which[which(bs3$adjr2==max(bs3$adjr2)),]
+bs3$which[which(bs3$adjr2==min(bs3$adjr2)),]
+## The model which only includes X3^2 has lowest Adjusted R^2 while the model including X1,X2,X3,X3^2 and X1*X2 has highest Adjusted R^2.
+
+bs4<-leaps(X,Y,method="adjr2",names=names(data)[1:9],nbest=1)
+bs4$adjr2
+plot(1:9, bs4$adjr2, type = "b", ylab = "Adjusted R^2",
+     xlab = "Number of Covariates", lwd = 3, pch = 19, main = "Adjusted R^2", cex.main = 2)
+## The model which only includes X1*X2 has lowest Adjusted R^2 while the model including X1,X2,X3,X3^2 and X1*X2 has highest Adjusted R^2.
+
+reg1<-lm(Y~X1+X2+X3+X33+X12)
+summary(reg1)
+## The best model is model including X1,X2,X3,X3^2and X1*X2.
+## the best model:
+## Y = 103.972798-93.357469*X1-1.641219*X2+2.772022*X3-0.012991*X3^2 +0.804328*X1*X2
+reg2<-lm(Y~X1+X3+X11+X22+X33+X23)
+summary(reg2)
+## The second best model is: Y=15.930306-89.770855*X1+ 3.771347*X3+ 15.933737*X1^2+0.007897*X2^2-0.011434*X3^2 -0.020911*X2*X3
+```
+
+```{r}
+rs<-regsubsets(X,Y)
+plot(rs,scale="adjr2")
+## The model which only includes X1*X2 has lowest Adjusted R^2 while the model including X1,X2,X3,X3^2 and X1*X2 has highest Adjusted R^2.
+```
+
+```{r}
+# f)
+### Forward selection with BIC (k = log(N))
+library(MASS)
+min.model <- lm(Y ~ 1, data = data)
+max.model <- lm(Y ~ ., data = data)
+scp <- list(lower = min.model, upper = max.model)
+fwd1 <- stepAIC(min.model, 
+               direction = 'forward', 
+               scope = scp,
+               k = log(nrow(data)))
+
+## The best two models are model including X1*X2 and X3
+##                     and model including X1*X2, X3 and X3^2
+
+fwd1$coefficients
+# The best model is Y=73.6149703-0.5964808*X1*X2+0.7648475*X3
+fit3<-lm(Y~X12+X3+X33)
+summary(fit3)
+# The second best model is Y= -16.20595-0.59715*X1*X2 +3.18912*X3-0.01585*X3^2
+```
+
+```{r}
+### Forward selection with AIC
+library(MASS)
+min.model <- lm(Y ~ 1, data = data)
+max.model <- lm(Y ~ ., data = data)
+scp <- list(lower = min.model, upper = max.model)
+fwd2 <- stepAIC(min.model, 
+               direction = 'forward', 
+               scope = scp)
+
+## The best two models are the model including X12, X3 and X3^2.
+##                     and the model including X1,X3, X12 and X3^2 
+
+fwd2$coefficients
+## The best model is Y = -16.20594947-0.59715466*X1*X2 +3.18911906*X3-0.01585003*X3^2
+fit4<-lm(Y~X3+X12+X33+X1)
+summary(fit4)
+## The second best model is Y= -20.75223 -15.22484*X1 + 3.5757*X3 -0.45633*X1*X2-0.01858*X3^2
+```
+
+```{r}
+# compare
+d1BIC <- names(bs1$Subsets[5, bs1$Subsets[5,] == TRUE])[-1]   ## BIC
+d1AIC <- names(bs2$Subsets[6, bs2$Subsets[6,] == TRUE])[-1]   ## AIC
+d1adjr2<- names(which(bs3$which[which(bs3$adjr2==max(bs3$adjr2)),])==TRUE)    ## Adjusted R^2
+fwdBIC<-names(fwd1$coefficients)[-1]                       ## forward BIC
+fwdAIC<-names(fwd2$coefficients)[-1]                       ## forward AIC
+
+## BIC comparison
+d1BIC %in% fwdBIC
+fwdBIC %in% d1BIC
+min(bs1$Subsets$BIC)  ##BIC of best model with BIC: 170.2278
+## BIC of best model with forward BIC: 181.76
+# The results are not identical.Best model with BIC has two more covariates than best model with Forward selection with BIC.Best model with BIC has 4 covariates while best model with Forward selection with BIC has 2 covariates. BIC of best model with BIC is lower than BIC of best model with forward with BIC, so best model with BIC is better. Both include X12 and X3.
+
+## AIC comparison
+d1AIC %in% fwdAIC
+fwdAIC %in% d1AIC
+min(bs2$Subsets$AIC)  ##AIC of best model with AIC: 163.7442
+## AIC of best model with forward AIC: 176.72
+# The results are not identical.Best model with AIC has two more covaraites than best model with Forward selection with AIC. Best model with AIC has 5 covariates while best model with Forward selection with AIC has 3 covariates. AIC of best model with AIC is lower than AIC of best model with forward with AIC, so best model with AIC is better. Both include X12, X3 and X3^2.
+```
+
+

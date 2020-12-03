@@ -1,0 +1,331 @@
+---
+title: "HUDM5126 Linear Models and Regression Analysis Homework 8"
+author: "Yifei Dong"
+date: "10/22/2020"
+output: pdf_document
+---
+
+# 0. Data Preparation
+
+```{r}
+getwd()
+library(dplyr)
+library(clusterGeneration)
+library(bestglm)
+library(ggplot2)
+library(leaps)
+library(MASS)
+```
+
+# 1. Model Selection with Kidney Dataset
+
+In this exercise, we will use kidney function data from Exercise 9.15 on p.378.
+
+```{r}
+# Load Dataset
+kidney <- read.table(paste("http://users.stat.ufl.edu/",
+                            "~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/",
+                            "Chapter%20%209%20Data%20Sets/CH09PR15.txt", sep = ""))
+# change column names
+kidney <- kidney %>%
+  dplyr::select("Y" = V1, "X1" = V2, "X2" = V3, "X3" = V4)
+head(kidney, 10)
+```
+
+\vspace{12pt}
+
+a) Obtain the scatterplot matrix. What does it suggest?
+
+```{r}
+pairs(kidney)
+cor(kidney)
+```
+\vspace{12pt}
+
+We can conclude from the scatterplot, as well as the correlation table. The response variable $Y$
+has a strong negative relationship with $X_{1}$ and $X_{2}$ and a positive relationship with $X_{3}$.
+Also, I observe some multicollinearity problem because there exists a positve correlation between $X_{1}$
+and $X_{2}$.
+
+\vspace{12pt}
+
+b) Fit the multiple regression model containing all three predictors as first-order terms. Are all
+predictors significant?
+
+```{r}
+reg1 <- lm(Y~X1+X2+X3, data = kidney)
+summary(reg1)
+```
+
+The model shows that all three predictors as first-order terms are significant because of the low
+p-value. Therefore, all of the three preictors should be retained.
+
+\newpage
+
+# 2. Best Subset Selection
+
+c) Perform best subset selection in order to choose the best model from the pool of possible predictors that includes
+$X_{1}, X_{2}, X_{3}$ plus all quadratic terms and all possible interactions. (That is, you should have 9 predictor
+variables to choose from.) What are the *two* best models according to BIC? Include a plot BIC as evidence which one
+is the lowest/highest value. Report the coefficients of the best models obtained.
+
+```{r}
+# Generate variables
+kidney <- kidney %>%
+  mutate(X1sq = X1^2, X2sq = X2^2, X3sq = X3^2,
+         X1X2 = X1*X2, X1X3 = X1*X3, X2X3 = X2*X3)
+head(kidney, 10)
+```
+```{r}
+# Regression with all predictors
+summary(lm(Y ~ ., data = kidney))
+```
+
+\vspace{12pt}
+
+```{r}
+# Reorder the variables
+kidney <- kidney[c(2:10, 1)]
+```
+
+```{r}
+bs1 <- bestglm(Xy = kidney, 
+               family = gaussian,
+               IC = "BIC")
+bs1$Subsets
+```
+
+```{r}
+# Select two best models using BIC
+bs1$BestModels %>%
+  top_n(-2)
+```
+
+The best model includes the following 4 predictors: $X_{1}, X_{2}, X_{3}$, and $X_{1}X_{2}$.
+
+The second best model includes the following 4 predictors: $X_{1}, X_{3}, X_{1}^2$, and $X_{2}X_{3}$.
+
+Both two models' BIC values are very close.
+
+\vspace{12pt}
+
+```{r}
+# Plot of BIC use ggplot2 package
+g1 <- ggplot(bs1$Subsets, aes(x = row.names(bs1$Subsets), 
+                              y = BIC, label = round(BIC, digits = 2)))+
+  geom_point()+
+  geom_text(hjust = 0, nudge_x = 0.05, size = 3)+
+  scale_x_discrete("Number of Covariates")+
+  scale_y_continuous("BIC")+
+  geom_line(group = 1)+
+  ggtitle("Plot of BIC")+
+  theme(plot.title = element_text(size = 12, face = "bold", color = "black", hjust = 0.5))
+g1
+```
+
+\vspace{12pt}
+
+```{r}
+# The best model
+bs1$BestModel
+```
+
+Based on the BIC plot, the lowest value is the model has 4 covariates and the highest value is the model with 0
+covariates, which only includes the intercept.
+
+So the estimated best regression model is:
+
+\[
+\widehat{Y_{i}}=181.6978-95.5593X_{i1}-1.7536X_{i2}+0.7951X_{i3}+0.8620X_{i1}X_{i2}
+\]
+
+\vspace{12pt}
+
+d) Repeat part c) but this time using AIC. Are the results idential?
+
+```{r}
+bs2 <- bestglm(Xy = kidney, 
+               family = gaussian,
+               IC = "AIC")
+bs2$Subsets
+```
+
+```{r}
+# Select two best models according to AIC
+bs2$BestModels %>%
+  top_n(-2)
+```
+
+Using AIC, the best model includes the following 5 predictors: $X_{1}, X_{2}, X_{3}, X_{3}^2$ and $X_{1}X_{2}$.
+
+The second best model also includes 4 predictors, which are: $X_{1}, X_{2}, X_{3}$ and $X_{1}X_{2}$.
+
+\vspace{12pt}
+
+```{r}
+# Plot of AIC use ggplot2 package
+g2 <- ggplot(bs2$Subsets, aes(x = row.names(bs2$Subsets), 
+                              y = AIC, label = round(AIC, digits = 2)))+
+  geom_point()+
+  geom_text(hjust = 0, nudge_x = 0.05, size = 3)+
+  scale_x_discrete("Number of Covariates")+
+  scale_y_continuous("AIC")+
+  geom_line(group = 1)+
+  ggtitle("Plot of AIC")+
+  theme(plot.title = element_text(size = 12, face = "bold", color = "black", hjust = 0.5))
+g2
+```
+
+```{r}
+# The best model using AIC
+bs2$BestModel
+```
+
+Based on the AIC plot, the lowest AIC value is the model that has 5 covariates and the highest value is the model with 0 covariates, which only includes the intercept.
+
+So the estimated best regression model is:
+
+\[
+\widehat{Y_{i}}=103.9728-93.3575X_{i1}-1.6412X_{i2}+2.7720X_{i3}-0.0130X_{i3}^2+0.8043X_{i1}X_{i2}
+\]
+
+The results are not identical. BIC suggests the best model should have 4 covariates, while AIC suggests the best
+model should have 5 covariates. This is consistent with the theory because BIC imposes additional penalty for more
+complexity in the model, which means BIC tends to produce a more easily interpretable model.
+
+\vspace{12pt}
+
+e) Repeat part c) using adjusted $R^2$? (You might want to use the `leaps` function from the `leaps` package)
+
+```{r}
+rsOut <- regsubsets(Y ~ ., data = kidney, nvmax = 9)
+summary(rsOut)
+```
+
+```{r}
+# Adjusted R^2
+plot(rsOut, scale = "adjr2", main = "Adjusted R squared")
+```
+
+```{r}
+reg.summary <- summary(rsOut)
+plot(1:9, reg.summary$adjr2,xlab="Number of Covariates",
+     ylab="Adjusted R Squared",
+     main="Adjusted R Squared", type="b",
+     lwd = 3)
+which.max(reg.summary$adjr2) # Model with 5 covariates has the largest R-Squared
+points(5,reg.summary$adjr2[5], col="red",cex=2, pch=20) # add a red point for the best model
+```
+
+\vspace{12pt}
+
+```{r}
+# Let's find those five covariates
+bs3 <- leaps(x=kidney[, 1:9], y = kidney[, 10], nbest = 9, method = "adjr2")
+colnames(bs3$which) <- colnames(kidney[, 0:9]) # change column names to make it clear
+```
+
+```{r}
+# Sort the two best models by adjusted R^2
+sort(bs3$adjr2, decreasing = TRUE)
+```
+
+```{r}
+# Let's find the two best models with largest R-Squared
+head(bs3$which[order(bs3$adjr2, decreasing = TRUE), ], 2)
+```
+
+Using adjusted $R^2$, the best model chooses the following 5 covariates, which are $X_{1}, X_{2}, X_{3}, X_{3}^2$,
+and $X_{1}X_{2}$. This matches our graph.
+
+The second best model chooses 6 covariates, which are $X_{1}, X_{3}, X_{1}^2, X_{2}^2, X_{3}^2$ and $X_{2}X_{3}$. This also matches our graph.
+
+\vspace{12pt}
+
+```{r}
+# Best model using adjusted R^2
+coefficients(rsOut, 5) #R^2 = 0.8668
+```
+
+So the estimated regression model with largest adjusted $R^2$ is:
+
+\[
+\widehat{Y_{i}}=103.9728-93.3575X_{i1}-1.6412X_{i2}+2.7720X_{i3}-0.0130X_{i3}^2+0.8043X_{i1}X_{i2}
+\]
+
+This result matches the result we get using AIC. AIC's best model has the largest adjusted $R^2$.
+
+\newpage
+
+# 3. Foward Stepwise Selection
+
+f) Repeat parts c & d, but this time using forward selection, as shown in class with the `stepAIC` function. How does
+your answer compare to the results in parts c to e?
+
+\vspace{12pt}
+
+```{r}
+# Forward Selection with AIC
+min.model <- lm(Y ~ 1, data = kidney) # start with only intercept
+max.model <- lm(Y ~ ., data = kidney) # stop with model with everything
+scp <- list(lower = min.model, upper = max.model)
+fwd <- stepAIC(min.model, direction = 'forward', scope = scp) 
+```
+
+```{r}
+fwd$coefficients
+```
+
+```{r}
+# Do the results match up with best subset selection?
+(d1 = names(fwd$coefficients)[-1]) # Names of predictor variables without the intercept
+(minAIC = which.min(bs2$Subsets$AIC)) # Which model is the best for AIC
+
+# Names of predictor variables without intercept: Best Subset Selection
+(d2 = names(bs2$Subsets[minAIC, bs2$Subsets[minAIC,] == TRUE])[-1]) 
+
+# Check if the two names sets are equivalent:
+d1 %in% d2
+d2 %in% d1
+```
+
+\vspace{12pt}
+
+Using the Forward Stepwise selection approach, AIC identified 3 covariates, which are $X_{1}X_{2}, X_{3}, X_{3}^2$.
+The AIC via best subset identified 5 covariates, which are $X_{1}, X_{2}, X_{3}, X_{3}^2, X_{1}X_{2}$. The best
+subset selection suggests 2 more covariates compare to the Forward Stepwise selection method. The results are not matching.
+
+\vspace{12pt}
+
+```{r}
+# Forward selection with BIC (k = log(N)), StepAIC can do the same job for BIC
+fwd2 <- stepAIC(min.model,
+                direction = 'forward', 
+                scope = scp,
+                k = log(nrow(kidney)))
+```
+
+```{r}
+fwd2$coefficients
+```
+
+```{r}
+# Do the results match up with best subset selection?
+(d3 <- names(fwd2$coefficients)[-1])
+(minBIC = which.min(bs1$Subsets$BIC))
+(d4 <- names(bs1$Subsets[minBIC, bs1$Subsets[minBIC,] == TRUE])[-1])
+```
+
+```{r}
+# Check if the two names sets are equivalent:
+d3 %in% d4
+d4 %in% d3
+```
+
+\vspace{12pt}
+
+Using the Forward Stepwise selection approach, BIC identified 2 covariates, which are $X_{1}X_{2}, X_{3}$. The BIC
+via best subset identified 4 covariates, which are $X_{1}, X_{2}, X_{3}, X_{1}X_{2}$. The best subset selection suggests 2 more covariates compare to the Forward Stepwise selection method. The results are also not matching.
+
+
+
