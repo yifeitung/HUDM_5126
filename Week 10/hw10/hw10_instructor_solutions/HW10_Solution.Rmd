@@ -1,0 +1,111 @@
+---
+title: "HW10"
+author: "Chengxuan Hu"
+date: "11/17/2020"
+output: word_document
+---
+
+11.7. Machine speed. The number of defective items produced by a machine (Y) is known to be linearly related to the speed setting of the machine (X). The data below were collected from recent quality control records.
+
+```{r}
+t11.7<-read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2011%20Data%20Sets/CH11PR07.txt",head=FALSE)
+# Column names can be changed with
+ names(t11.7)[1]<-paste("y")
+ names(t11.7)[2]<-paste("x")
+ attach(t11.7)
+```
+a. Fit a linear regression function by ordinary least squares, obtain the residuals, and plot the residuals against X. What does the residual plot suggest?
+```{r}
+fit=lm(y~x,data=t11.7)
+summary(fit)
+# linear regression: y=-5.75000+0.18750*x
+e=resid(fit)
+plot(x,e)
+## Constant variance assumption violates since the trend becomes bigger and bigger.
+```
+
+b. Conduct the Breusch-Pagan test for constancy of the error variance,asssuming logui^2= Yo + Yl Xi; use a = .10. State the alternatives, decision rule, and conclusion.
+```{r}
+library(lmtest)
+bptest(fit)
+# H0: constant variance assumption holds. Ha: constant variance assumtpion is violated.
+# Decision rule: p-value=0.0663< 0.1 reject H0.
+# Conclusion:reject Ho
+# That is, constant variance assumption is violated.
+```
+
+c. Plot the squared residuals against X. What does the plot suggest about the relation between the variance of the error term and X?
+```{r}
+e2=e*e
+plot(x,e2)
+# There is an upward trend, and the variance of the error term is positively related to x.
+```
+
+d. Estimate the variance function by regressing the squared residuals against X, and then calculate the estimated weight for each case using (11.16b).
+```{r}
+fit2=lm(e2~x)
+summary(fit2)
+# e2=-180.0833+1.2437*x
+w=1/predict(fit2)
+w
+```
+
+e. Using the estimated weights, obtain the weighted least squares estimates of b0 and b1. Are the weighted least squares estimates similar to the ones obtained with ordinary least squares in part (a)?
+```{r}
+xm = cbind(rep(1, nrow(t11.7)), x)
+bnew = solve(t(xm)%*%diag(w)%*%xm)%*%t(xm)%*%diag(w)%*%y
+bnew
+# The weighted least squares estimates are similar to the ones obtained with ordinary least squares in part (a), and there are small differences in b0.
+```
+
+f. Compare the estimated standard deviations of the weighted least squares estimates bwo and bw1 in part (e) with those for the ordinary least squares estimates in part (a). What do you find?
+```{r}
+MSEw = t(y-xm%*%bnew)%*%diag(w)%*%(y-xm%*%bnew)/((nrow(t11.7)-2))
+sbnew = drop(MSEw)*solve(t(xm)%*%diag(w)%*%xm)
+sbnew
+sqrt(diag(sbnew))                     ## 13.16843117  0.05056301
+summary(fit)$coefficients[,2]         ## 16.73052     0.05381
+# The estimated standard deviations of the weighted least squares estimates bwo and bw1 in part (e) are smaller those for the ordinary least squares estimates in part (a).
+```
+
+g. Iterate the steps in parts (d) and (e) one more time. Is there a substantial change in the estimated regression coefficients? If so, what should you do?
+```{r}
+ynew=xm %*% bnew
+fit3=lm(ynew~x)
+enew=resid(fit3)
+enew2=enew*enew
+fit4=lm(enew2~x)
+summary(fit4)
+# enew2=-3.585e-29 + 1.616e-31 *x
+wnew=1/predict(fit4)
+wnew
+
+bnew2 = solve(t(xm)%*%diag(wnew)%*%xm)%*%t(xm)%*%diag(wnew)%*%ynew
+bnew2
+# There is no substantial change in the estimated regression coefficients. Stop here.
+# If there is a substantial change, I should iterate until the estimated regression coefficients become stable.
+```
+
+11.16. Refer to Machine speed Problem 11.7. Demonstrate numerically that the weighted least squares estimates obtained in part (e) are identical to those obtained when using transformation (11.23) and ordinary least squares.
+```{r}
+## WLS obtained in part(e):
+bnew = solve(t(xm)%*%diag(w)%*%xm)%*%t(xm)%*%diag(w)%*%y
+bnew
+
+## using transformation (11.23)
+summary(lm(y~x,data=t11.7,weights=w))
+# Estimate   
+# (Intercept) -6.23322     
+# x            0.18911
+
+## using OLS
+w2<-matrix(0,12,12)
+diag(w2)=sqrt(w)
+ynew2=w2%*%y
+xnew2=w2%*%xm
+bnew4=solve(t(xnew2) %*% xnew2) %*% t(xnew2) %*% ynew2
+bnew4
+
+## They are identical.
+```
+

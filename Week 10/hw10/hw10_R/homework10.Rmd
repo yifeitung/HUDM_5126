@@ -1,0 +1,262 @@
+---
+title: "HUDM5126 Linear Models and Regression Analysis Homework 10"
+author: "Yifei Dong"
+date: "11/4/2020"
+output: pdf_document
+---
+
+# 0. Data Preparation
+
+```{r}
+# Set working dicrectory
+setwd("~/Documents/Teachers College/Linear Models and Regression/Week 10/hw10/hw10_R")
+getwd()
+```
+
+```{r}
+# Load Packages
+library(dplyr)
+library(msme)
+library(ggplot2)
+library(lmtest)
+```
+
+# 1. KNNL 11.7
+
+```{r}
+# Load Data set
+mydata <- read.table(paste("http://users.stat.ufl.edu/~rrandles/sta4210/", 
+                           "Rclassnotes/data/textdatasets/KutnerData/", 
+                           "Chapter%2011%20Data%20Sets/CH11PR07.txt", sep = ""))
+mydata <- mydata %>%
+  dplyr::select("Y" = V1, "X1" = V2)
+mydata
+attach(mydata)
+```
+\vspace{12pt}
+
+a). Fit a linear regression function by ordinary least squares, obtain the residuals, and plot the residuals against $X$. What 
+does the residual suggest?
+
+\smallskip
+
+```{r}
+reg1 <- lm(Y~X1, data = mydata)
+summary(reg1)
+```
+
+```{r}
+# Obtain residuals
+residuals <- residuals(reg1)
+residuals
+```
+
+```{r}
+# Plot the residuals against X1
+g1 <- ggplot(reg1, aes(x = X1, y = .resid))+
+  geom_point()+
+  scale_y_continuous("Residual")+
+  ggtitle("Residual Plot against X1")+
+  theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5))+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black")
+g1
+```
+
+Based on the residual plot against $X_{1}$, I do confirm there exists nonconstant error variance (fanshaped pattern is 
+observed). Therefore, heteroskedasticity exists.
+
+\vspace{12pt}
+
+The estimated regression equation is:
+
+\begin{center}
+
+$\widehat{Y}=-5.75+0.1875X_{i1}$
+
+\end{center}
+
+\vspace{12pt}
+
+b). Conduct the Breusch-Pagan test for constancy of the error variance, assuming $\log_{e}\sigma^2=\gamma_{0}+\gamma_{1}X_{i}$; 
+Use $\alpha = 0.10$. State the alternatives, decision rule and conclusion.
+
+```{r}
+# Breusch-Pagan test
+bptest(reg1)
+```
+
+\begin{center}
+$H_{0}$ = Homoskedasticity
+
+$H_{\alpha}$ = Heteroskedasticity
+\end{center}
+
+P-value=0.0663 is less than 0.1. We should reject $H_0$. Conclude nonconstant error variance. 
+
+\vspace{12pt}
+
+c). Plot the squared residuals against $X$. What does the plot suggest about the relation between the variance of the error term and $X$.
+
+```{r}
+# Plot the absolute residuals against X1
+g2 <- ggplot(reg1, aes(x = X1, y = (.resid)^2))+
+  geom_point()+
+  scale_y_continuous("Squared Residual")+
+  ggtitle("Squared Residual Plot against X1")+
+  theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5))+
+  geom_smooth(method = "lm", se = FALSE)
+g2
+```
+
+We can also plot squared residuals against $X_{1}$, and it shows a linear relation between the variance of the error term and 
+$X_{1}$ may be reasonable (an upward tendency).
+
+\vspace{12pt}
+
+d). Estimate the variance function by regressing the squared residuals against $X$, and then calculate the estimated weight for each case using (11.16b).
+
+Recall 11.16b:
+
+\begin{center}
+
+$w_{i}= \frac{1}{\widehat{\upsilon_{i}}}$
+
+\end{center}
+
+```{r}
+# Regress the squared residuals against X
+residuals.squared <- residuals^2
+reg2 <- lm(residuals.squared~mydata$X)
+summary(reg2)
+```
+
+Therefore, 
+
+\begin{center}
+
+$\widehat{\upsilon}=-180.0833+1.2437X_{i1}$
+
+\end{center}
+
+```{r}
+# Obtained estimated variances
+v <- predict(reg2)
+v
+```
+
+```{r}
+# estimated weight for each case
+w <- 1/v
+w
+```
+
+\vspace{12pt}
+
+e). Use the estimated weights, obtain the weighted least squares estimates of $\beta_{0}$ and $\beta_{1}$. Are the weighted 
+least squares estimates similar to the ones obtained with ordinary least squares in part (a)?
+
+```{r}
+# Obtain the weighted least squares estimates
+Xm <- cbind(rep(1, nrow(mydata)), X1)
+Xm
+```
+
+```{r}
+(bnew = solve(t(Xm) %*% diag(w) %*% Xm) %*% t(Xm) %*% diag(w) %*% Y)
+```
+
+The weighted least squares estimated function is:
+
+\begin{center}
+
+$\widehat{Y}=-6.2332+0.1891X_{i1}$
+
+\end{center}
+
+The weighted least squares estimates are very similar to the ones obtained with ordinary least squares (OLS), but the
+coefficient for $X_{1}$ with weighted least squares is little bit larger than OLS estimates.
+
+\vspace{12pt}
+
+f). Compare the estimated standard deviations of the weighted least squares estimates $b_{w0}$ and $b_{w1}$ in part (e) with 
+those for the ordinary least squares estimates in part (a). What do you find?
+
+```{r}
+# MSE(w)
+MSEw = t(Y - Xm %*% bnew) %*% diag(w) %*% (Y - Xm %*% bnew) / ((nrow(mydata)-2))
+sbnew = drop(MSEw)*solve(t(Xm)%*%diag(w)%*%Xm)
+sbnew
+```
+
+```{r}
+# SE of new estimators:
+sqrt(diag(sbnew))
+```
+
+Compare to the ordinary least squares estimates in part (a), the estimated standard deviations of weighted least squares is
+much smaller.
+
+g). Iterate the steps in parts (d) and (e) one more time. Is there a substantial change in the estimated regression
+coefficients? If so, what should you do?
+
+```{r}
+# Obtain fitted values
+yhat <- Xm %*% bnew 
+yhat
+```
+
+```{r}
+# Obtain new residuals
+residualsnew <- Y-yhat
+# Regress the squared residuals against X
+residualsnew.squared <- residualsnew^2
+reg3 <- lm(residualsnew.squared~as.data.frame(Xm)[,2])
+summary(reg3)
+```
+
+```{r}
+# Obtained new estimated variances
+v2 <- predict(reg3)
+v2
+```
+
+```{r}
+# estimated new weight for each case
+w2 <- 1/v2
+w2
+```
+
+```{r}
+# Obtain the weighted least squares estimates: Iternate
+(bnew2 = solve(t(Xm) %*% diag(w2) %*% Xm) %*% t(Xm) %*% diag(w2) %*% Y)
+```
+
+After Intereate the steps one more time, the estimated regression function becomes:
+
+\begin{center}
+
+$\widehat{Y}=-6.2335+0.1891X_{i1}$
+
+\end{center}
+
+I don't observe a substantial change in the estimated regression coefficients. The coefficients are stable.
+
+\newpage
+
+# 2. KNNL 11.16
+
+Refer to \textbf{Machine speed} Problem 11.7. Demonstrate numerically that the weighted least squares estimates obtained in 
+part(e) are identical to those obtained when using transformation (11.23) and ordinary least squares.
+
+```{r}
+# Obtain a diagonal matrix containing the square roots of the weights wi
+diag(sqrt(w))
+```
+
+```{r}
+# weighted least squares estimates using transformation and OLS
+(bw = solve(t(diag(sqrt(w)) %*% Xm) %*% diag(sqrt(w)) %*% Xm) %*% 
+   t(diag(sqrt(w)) %*% Xm) %*% diag(sqrt(w)) %*% Y)
+```
+
+The results are identical with Problem 11.7 part (e).
