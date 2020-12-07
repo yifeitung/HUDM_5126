@@ -1,0 +1,138 @@
+---
+title: "HW11_Solution"
+author: "Chengxuan Hu"
+date: "11/24/2020"
+output: word_document
+---
+
+12.13. Advertising agency. The managing partner of an advertising agency is interested in the possibility of making accurate predictions of monthly billings. Monthly data on amount of billings (Y. in thousands of constant dollars) and on number of hours of staff time (X, in thousand hours) for the 20 most recent months follow. A simple linear regression model is believed to be appropriate. but positively autocorrelated error terms may be present.
+```{r}
+t12.13 <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2012%20Data%20Sets/CH12PR13.txt", header = FALSE)
+names(t12.13)[1]<-paste("Y")
+names(t12.13)[2]<-paste("X")
+attach(t12.13)
+```
+
+a. Fit a simple linear regression model by ordinary least squares and obtain the residuals. Also obtain s{bo} and s{b1}.
+```{r}
+reg1<-lm(Y~X,t12.13)
+summary(reg1)
+## The estimated regression model is Y = 93.6865 + 50.8801*X
+# Obtain the residuals:
+r=resid(reg1)
+r
+# s{b0}=0.8229
+# s{b1}=0.2634 
+```
+
+b. Plot the residuals against time and explain whether you find any evidence of positive autocorrelation.
+```{r}
+ts.plot(r,type="b")
+## From the beginning, it's a upward trend followed by upward, then downward followed by downward until the 10th, and again upward followed by upward. So it has positive autocorrelation.
+```
+
+c. Conduct a formal test for positive autocorrelation using alpha = .01. State the altematives, decision rule. and conclusion. Is the residual analysis in part (b) in accord with the test result?
+```{r}
+library(lmtest)
+dwtest(Y~X)
+# H0: Errors are uncorrelated over time.
+# Ha: There exsits positive autocorrelation.
+# Decision rule: p-value = 0.002891 < 0.01, reject H0
+# Conclusion: There exists positive autocorrealation.
+# The residual analysis in part (b) is in accord with the test result.
+```
+
+12.14. Refer to Advertising agency Problem 12.13. Assume that regression model (12.1) is applicable and that the Cochrane-Orcutt procedure is to be employed.
+a. Obtain a point estimate of the autocorrelation parameter. How well does the approximate relationship (12.25) hold here between the point estimate and the Durbin-Watson test statistic?
+```{r}
+# Obtain a point estimate:
+numerator = 0
+n = nrow(t12.13)
+for (i in 2:n) numerator = numerator + r[i]*r[i-1]
+rho = numerator/sum(r[1:n-1]^2)
+rho ## 0.331904 
+
+2*(1-rho)  ## 1.336192 
+## DW = 0.97374
+# There exists an approximate relation between the DW test statistic and the the estimated autocorrelation parameter rho: DW = 2*(1-rho)
+## DW = 0.97374 is a little smaller than 2*(1-rho) = 1.336192.
+```
+
+b. Use one iteration to obtain the estimates b0' and b1' of the regression coefficients beta0' and beta1' in transformed model (12.17) and state the estimated regression function. Also obtain s{b0'} and s{b1'}.
+```{r}
+Yprime = 1:n
+for (i in 2:n) Yprime[i] = Y[i]-rho*Y[i-1]
+Yprime = Yprime[-1]
+
+Xprime = 1:n
+for (i in 2:n) Xprime[i] = X[i]-rho*X[i-1]
+Xprime = Xprime[-1]
+
+regprime1 = lm(Yprime ~ Xprime)
+summary(regprime1)
+# b0' = 63.3840
+# b1' = 50.5470
+# The estimated regression model: Yprime = 63.3840 + 50.5470*Xprime
+# s{b0'} = 0.5592
+# s{b1'} = 0.2622
+```
+
+c. Test whether any positive autocorrelation remains after the first iteration using alpha = .01. State the alternatives, decision rule, and conclusion.
+```{r}
+dwtest(Yprime ~ Xprime)
+# H0: Errors are uncorrelated over time.
+# Ha: There exsits positive autocorrelation.
+# Decision rule: p-value = 0.2337 > 0.01, do not reject H0
+# Conclusion: There is no more autocorrealation.
+```
+
+d. Restate the estimated regression function obtained in part (b) in terms of the original variables. Also obtain s{bo} and s{b1}. Compare the estimated regression coefficients obtained with the Cochrane-Orcutt procedure and their estimated standard deviations with those obtained with ordinary least squares in Problem 12.13a.
+```{r}
+b0 = regprime1$coef[1]/(1-rho)
+b1 = regprime1$coef[2]
+b0
+b1
+# b0 = 94.87257, b1 = 50.54696
+# Y = 94.87257 + 50.54696*X
+
+summary(regprime1)$coef[1,2]/(1-rho)
+# s{b0} = 0.8369385
+summary(regprime1)$coef[2,2]
+# s{b1} = 0.2622327
+
+library(orcutt)
+cochrane.orcutt(reg1, convergence = 0)
+# b0 = 94.87257, b1 = 50.54696
+# The estimated regression coefficients are same.
+
+# In Problem 12.13a
+# s{b0}=0.8229
+# s{b1}=0.2634 
+# The estimated standard deviation of b0 is larger than that obtained with OLS while the estimated standard deviation of b1 is smaller than that obtained with OLS. But they are similar.
+```
+
+e. Based on the results in parts (c) and (d), does the Cochrane-Orcutt procedure appear to have been effective here?
+```{r}
+# The Cochrane-Orcutt procedure appears to have been effective here since it solved the autocorrelation problem.
+```
+
+f. Staff time in month 21 is expected to be 3.625 thousand hours. Predict the amount of billings in constant dollars for month 21, using a 99 percent prediction interval. Interpret your interval.
+```{r}
+e20 = Y[20]-(b0 + b1*X[20])
+
+# X21 = 3.625
+# Obtain Y.hat
+(Y.hat21 = b0 + b1*3.625)
+## 278.1053
+
+# Adjust with correlated residual
+(F21 = Y.hat21 + rho*e20)
+## 278.3537
+```
+
+g. Estimate beta1 with a 99 percent confidence interval. Interpret your interval.
+```{r}
+confint(regprime1,level=0.99)[2,]
+## Interpret: we are 99% confident that for each extra one thousand hour in staff time, monthly amount of billings in thousands of constant dollars increase by as little as 49.78695 to as much as 51.30697.
+```
+

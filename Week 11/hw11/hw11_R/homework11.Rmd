@@ -1,0 +1,279 @@
+---
+title: "HUDM5126 Linear Models and Regression Analysis Homework 11"
+author: "Yifei Dong"
+date: "11/11/2020"
+output: pdf_document
+---
+
+# 0. Data Prepartation
+
+```{r}
+setwd("~/Documents/Teachers College/Linear Models and Regression/Week 11/hw11/hw11_R")
+getwd()
+```
+
+```{r}
+# Load packages
+library(dplyr)
+library(lmtest)
+library(orcutt)
+```
+
+
+# 1. KNNL 12.13
+
+```{r}
+# Load dataset
+data <- read.table(paste("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/",
+                         "textdatasets/KutnerData", 
+                         "/Chapter%2012%20Data%20Sets/CH12PR13.txt", sep = ""))
+```
+
+```{r}
+# Rename variables
+data <- data %>%
+  dplyr::select("Y" = V1,
+                "X" = V2)
+head(data, 5)
+```
+
+\vspace{12pt}
+
+a) Fit a simple linear regression model by ordinal least squares and obtain the residuals. Also obtain $s\{b_{0}\}$ and $s\{b_{1}\}$.
+
+```{r}
+attach(data)
+reg <- lm(Y ~ X)
+summary(reg)
+```
+
+```{r}
+# SE(b0)
+summary(reg)$coefficient[3]
+# SE(b1)
+summary(reg)$coefficient[4]
+```
+
+The estimated regression equation is:
+\begin{center}
+$\widehat{Y} = 93.6865+50.8801X$
+\end{center}
+
+$s\{b_{0}\} = 0.8229$ and $s\{b_{1}\} = 0.2634$
+
+\vspace{12pt}
+
+b) Plot the residuals against time and explain whether you find any evidence of positive autocorrelation.
+
+```{r}
+r <- residuals(reg)
+ts.plot(r, type = "b")
+abline(h = 0)
+```
+
+I do observe a "sine" type of curve, which indicates a potential autocorrelation problem.
+
+c) Conduct a formal test for positive autocorrelation using $\alpha = .01$. State the alternatives, decision rule, and conclusion. Is the 
+residual analysis in part (b) in accord with the test result?
+
+```{r}
+dwtest(Y ~ X)
+```
+
+\begin{center}
+$H_{0}: \rho = 0$
+
+$H_{\alpha}: \rho >0$
+\end{center}
+
+D-W Statistic is 0.97374 and p-value = 0.002891, which is smaller than 0.01. Therefore, we should reject $H_{0}$ and conclude that there is a strong evidence of positive autocorrelation. The residual analysis in part (b) is in accord with the test result.
+
+\newpage
+
+# 2. KNNL 12.14
+
+a) Obtain a point estimate of the autocorrelation parameter. How well does the approximate relationship (12.25) hold here between the point 
+estimate and the Durbin-Waton test statistic?
+
+```{r}
+# Obtain a point estimate of the autocorrelation parameter
+# Manual estimation of rho
+numerator = 0
+n = nrow(data)
+for (i in 2:n) numerator = numerator + r[i]*r[i-1]
+rho = numerator/sum(r[1:(n-1)]^2)
+rho
+```
+
+Therefore, $\rho = 0.331904$
+
+Recall 12.25, there exists an approximate relation between the Durbin-Watson test statistic $D$ in (12.14) and the estimated autocorrelation
+parameter $r$ in (12.22):
+
+\begin{equation}
+D \approx 2(1-r)
+\end{equation}
+
+```{r}
+2*(1-0.331904)
+```
+
+Durbin-Waton test statistic is 0.97374, which is smaller than 1.336192 using the estimated autocorrelation parameter.
+
+\vspace{12pt}
+
+b) Use one iteration to obtain the estimate $b_{0}'$ and $b_{1}'$ of the regression coefficients $\beta_{0}'$ and $\beta_{1}'$ in 
+transformed model (12.17) and state the estimated function. Also obtain $s\{b_{0}'\}$ and $s\{b_{1}'\}$.
+
+```{r}
+# Compute transformed variables:
+n = nrow(data)
+Yprime = 1:n
+for (i in 2:n) Yprime[i] = Y[i]- rho*Y[i-1]
+Yprime = Yprime[-1]
+
+Xprime = 1:n
+for (i in 2:n) Xprime[i] = X[i]- rho*X[i-1]
+Xprime = Xprime[-1]
+
+Regprime = lm(Yprime ~ Xprime)
+summary(Regprime)
+```
+
+```{r}
+# SE(b0)
+summary(Regprime)$coefficient[3]
+# SE(b1)
+summary(Regprime)$coefficient[4]
+```
+
+$b_{0}'=63.3840$ and $b_{1}'=50.5470$
+
+The estimated function is:
+
+\begin{center}
+$\widehat{Y'}=63.3840+50.5470X'$
+\end{center}
+
+$s\{b_{0}'\}=0.5592$ and $s\{b_{1}'\} = 0.2622$
+
+\vspace{12pt}
+
+c) Test whether any positive autocorrelation remains after the first iteration using $\alpha = .01$. State the alternatives, decision rule,
+and conclusion.
+
+```{r}
+dwtest(Yprime ~ Xprime)
+```
+
+\begin{center}
+$H_{0}: \rho = 0$
+
+$H_{\alpha}: \rho >0$
+\end{center}
+
+D-W statistic is 1.7612 and p-value = 0.2337, which is greater than $\alpha = .01$. Therefore, we could not reject $H_{0}$ and conclude that
+no autocorrelation remains after the first iteration.
+
+\vspace{12pt}
+
+d) Restate the estimated regression function obtained in part (b) in terms of the original variables. Also obtain $s\{b_{0}\}$ and 
+$s\{b_{1}\}$. Compare the estimated regression coefficients obtained with the Cochrane-Orcutt procedure and their estimated standard 
+deviation with those obtained with ordinary least squares in Problem 12.13a.
+
+```{r}
+# Back to original model:
+(b0 = Regprime$coef[1]/(1-rho))
+(b1 = Regprime$coef[2])
+```
+
+
+```{r}
+cochrane.orcutt(reg, convergence = 0) # results are the same
+```
+
+```{r}
+# SE(b0)
+(summary(Regprime)$coefficient[3]/(1-rho))
+# SE(b1)
+(summary(Regprime)$coefficient[4])
+```
+
+```{r}
+# Compare to OLS
+# coefficients
+(summary(reg)$coefficient[1])
+(summary(reg)$coefficient[2])
+```
+
+```{r}
+# OLS Standard deviation
+(summary(reg)$coefficient[3])
+(summary(reg)$coefficient[4])
+```
+
+Back transform to:
+
+\begin{center}
+$\widehat{Y} = 94.87257+50.54696X$
+\end{center}
+
+$s\{b_{0}\}=0.8370$ and $s\{b_{1}\} = 0.2622$
+
+Compare those estimations obtained with OLS, the coefficient of intercept is higher than that of OLS, but the coefficient of $\beta_{1}$ is 
+smaller than OLS estimates. The standard deviation estimated with the Cochrane-Orcutt procedure is very close to OLS. However, it is necessary to point out that  $s\{b_{1}\} = 0.2622 < 0.2634$, which is smaller than OLS estimates.
+
+\vspace{12pt}
+
+e) Based on the results in parts (c) and (d), does the Cochrane-Orcutt procedure appear to have been effective here?
+
+We know that the estimated standard deviations $s\{b_{k}\}$ calculated according to ordinary least squares may seriously underestimate the 
+true standard deviation $\sigma\{b_{k}\}$ when positive autocorrelation is present. In this case, with the Cochrane-Orcutt procedure, the 
+estiamted standard deviation of $s\{b_{1}\}$ is smaller than than OLS estimate. Therefore, the Cochrane-Orcutt approach does not always work
+properly. A major reason is that when the error terms are positively related. the estimated $r$ tends to \textbf{understimate} the 
+autocorrelation parameter $\rho$ (as we see in part a). When this bias is serious, it can significantly reduce the effectiveness of the 
+Cochrane-Orcutt approach.
+
+\vspace{12pt}
+
+f) Staff time in month 21 is expected to be 3.625 thousand hours. Predict the amount of billings in constant dollars for month 21, using a 
+99 percent prediction interval. Interpret your interval (skip the CI).
+
+```{r}
+# Forecasting
+# Obtain last residual
+e20 = Y[20]-(b0 + b1*X[20])
+
+# X21 = 3.625
+# Obtain Y.hat
+Y.hat21 = b0 + b1*3.625
+
+# Adjust with correlated residual
+(F21 = Y.hat21 + rho*e20)
+```
+
+The predicted amount of billings in thousands of constant dollars for month 21 is 278.3537.
+
+\vspace{12pt}
+
+g) Estimate $\beta_{1}$ with a 99 percent confidence interval. Interpret your interval.
+
+```{r}
+# SE(b1)
+(se1 <- (summary(Regprime)$coefficient[4]))
+```
+
+```{r}
+confint(Regprime, level = 0.99)
+```
+
+Therefore,
+
+\begin{center}
+$49.78695 \leq \beta_{1} \leq 51.30697$
+\end{center}
+
+We predict with approximately 99 percent confidence that the true $\beta_{1}$ will be between 49.78695 and 51.30697, using Cochrane-Orcutt 
+approach to eliminate the problem of autocorrelated errors.
+
+
