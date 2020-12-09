@@ -1,0 +1,270 @@
+---
+title: "HUDM 5126 Linear Models and Regression Analysis Homework 12"
+author: "Yifei Dong"
+date: "11/20/2020"
+output: pdf_document
+---
+
+# 0. Data Preparation
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(car)
+```
+
+# 1. Fit the nonlinear model
+
+\begin{center}
+\[
+Y = \frac{\gamma_{1}X}{\gamma_{2}+X}+\varepsilon
+\]
+\end{center}
+
+```{r}
+# Create a data set
+X <- c(2, 2, 0.667, 0.667, 0.4, 0.4, 0.286, 0.286, 0.222, 0.222, 0.2, 0.2)
+Y <- c(0.0615, 0.0527, 0.0344, 0.0258, 0.0138, 0.0258, 0.0129, 
+       0.0183, 0.0083, 0.0169, 0.0129, 0.0087)
+mydata <- as.data.frame(cbind(X, Y))
+mydata
+```
+
+a). Report the fitted equation
+
+To obtain staring values, observe when the additive error is ignored we have
+
+\begin{center}
+\[
+\frac{1}{Y_{i}} = \frac{1}{\gamma_{1}}+\frac{\gamma_{2}}{\gamma_{1}}X_{i}^{-1}
+\]
+\end{center}
+
+```{r}
+# Let's find staring values
+xprime <- 1/mydata$X
+yprime <- 1/mydata$Y
+mydata2 <- as.data.frame(cbind(xprime, yprime))
+```
+
+```{r}
+reg <- lm(yprime~xprime, data = mydata2)
+summary(reg)
+```
+
+```{r}
+(g10 <- 1/reg$coefficients[1]) # starting value for gamma1
+(g20 <- g10*reg$coefficients[2]) # starting value for gamm2
+```
+
+```{r}
+mod <- nls(Y~((gamma_1*X)/(gamma_2+X)), data = mydata, 
+           start = list(gamma_1 = 0.1162497, gamma_2 = 2.04378), trace=T)
+```
+
+```{r}
+summary(mod)
+```
+
+```{r}
+coef(mod)
+```
+
+The fitted equation is:
+
+\begin{center}
+\[
+Y = \frac{0.1050X}{1.6748+X}+\varepsilon
+\]
+\end{center}
+
+b). Interpret the estimated parameters.
+
+The $\gamma_{1} = 0.1050$ is the Maximal Effect. To prove, use L'Hopital's Rule
+
+\begin{equation}
+\lim_{x\to\infty}\frac{\gamma_{1}X}{\gamma_{2}+X}=\lim_{x\to\infty}\frac{\gamma_{1}}{1+0}=\gamma_{1}
+\end{equation}
+
+The $\gamma_{2} = 1.6748$ is the dose providing 50\% of maximal effect since $\frac{\gamma_{1}\gamma_{2}}{\gamma_{2}+\gamma_{2}}=\frac{\gamma_{1}}{2}$
+
+\vspace{12pt}
+
+c). Provide a scatterplot and include the fitted curve to it.
+
+```{r}
+# Predicted Values
+(yhat_nonlinear <- predict(mod))
+reg2 <- lm(Y~X, data = mydata)
+(yhat_linear <- predict(reg2))
+```
+
+```{r}
+mydata3 <- as.data.frame(cbind(mydata, yhat_linear, yhat_nonlinear))
+mydata3
+```
+
+```{r}
+g1 <- ggplot(mydata3, aes(x = X, y = Y))+
+  geom_point()+
+  geom_line(aes(y = yhat_linear, color = "Linear Model"), size = 1)+
+  geom_line(aes(y = yhat_nonlinear, color = "Nonlinear Model"), size = 1)+
+  scale_color_manual("Model", values = c("Linear Model" = "red",
+                                "Nonlinear Model" = "blue"))
+g1
+```
+
+\newpage
+
+# 2. KNNL 13.5
+
+```{r}
+# Load dataset
+data <- read.table(paste("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/",
+                         "textdatasets/KutnerData/Chapter%2013%20Data%20Sets/",
+                         "CH13PR05.txt", sep = ""))
+data <- data %>%
+  select("Y" = "V1", "X" = "V2")
+head(data, 5)
+```
+
+The following exponential model with independent normal error terms is deemed, to be appropriate:
+
+\begin{center}
+\[
+Y_{i}=\gamma_{0}+\gamma_{2}\mbox{exp}(-\gamma_{1}X_{i})+\varepsilon_{i}
+\]
+\end{center}
+
+\vspace{12pt}
+
+a. To obtain initial estimates of $\gamma_{0}, \gamma_{1}$ and $\gamma_{2}$, note that $f(X, \gamma)$ appoaches a lower 
+asymptote $\gamma_{0}$ as $X$ increases without bound. Hence, let $g_{0}^{(0)}=0$ and observe that when we ignore the error 
+term, a logarithmic transformation then yields $Y_{i}'=\beta_{0}+\beta_{1}X_{i}$, where $Y_{i}'=\mbox{log}_{e}Y_{i}$, 
+$\beta_{0}=\mbox{log}_{e}\gamma_{2}$ and $\beta_{1}=-\gamma_{1}$. Therefore, fit a linear regression function based on the 
+transformed data and use initial estimates, $g_{0}^{(0)}=0, g_{1}^{(0)}=-b_{1}$, and $g_{2}^{(0)}=\mbox{exp}(b_{0})$.
+
+```{r}
+# Obtain starting values
+logy = log(data$Y)
+initial <- lm(logy~data$X)
+summary(initial)
+```
+
+```{r}
+(g20 <- exp(initial$coefficients[1])) # initial estimate for gamma2
+(g10 <- -(initial$coefficients[2])) # initial estimate for gamma1
+```
+
+Therefore, $g_{0}^{(0)}=0, g_{1}^{(0)}=0.0006934571, g_{2}^{(0)}=0.6021485$.
+
+\vspace{12pt}
+
+b. Using the starting values obtained in part (a), find the least squares estimates of the parameters $\gamma_{0}, \gamma_{1}$ 
+and $\gamma_{2}$.
+
+```{r}
+mod2 <- nls(Y~gamma_0+gamma_2*exp(-gamma_1*X), data = data,
+            start = list(gamma_0 = 0, gamma_1 = 0.0006934571, gamma_2 = 0.6021485), 
+            trace = TRUE)
+```
+
+```{r}
+summary(mod2)
+```
+
+```{r}
+coef(mod2)
+```
+
+Therefore, $\gamma_{0}=0.04823, \gamma_{1}=0.00112, \gamma_{2}=0.71341$
+
+\newpage
+
+# 3. KNNL 13.6
+
+Refer to \textbf{Home computers} Problem 13.5.
+
+a. Plot the estimated nonlinear regression function and the data. Does the fit appear to be adequate?
+
+```{r}
+# Obtain fitted values
+yhat_nonlinear2 <- predict(mod2)
+data2 <- as.data.frame(cbind(data, yhat_nonlinear2))
+data2
+```
+
+```{r}
+g2 <- ggplot(data2, aes(x = X, y = Y))+
+  geom_point()+
+  geom_line(aes(y = yhat_nonlinear2), size = 1, col = "blue")
+g2
+```
+
+The fit appears to be adequate.
+
+\vspace{12pt}
+
+b. Obtain the residuals and plot them against the fitted values and against X on separate graphs. Also Obtain a normal 
+probability plot. Does the model appear to be adequate?
+
+```{r}
+# Obtain the residuals
+e <- residuals(mod2)
+data3 <- as.data.frame(cbind(data2, e))
+data3
+```
+
+```{r}
+# Residuals against the fitted values
+g3 <- ggplot(data3, aes(x = yhat_nonlinear2, y = e))+
+  geom_point()+
+  geom_hline(yintercept = 0)+
+  ggtitle("Residuals against the fitted values")+
+  scale_x_continuous("Fitted Values")+
+  scale_y_continuous("Residuals")+
+  theme(plot.title = element_text(size = 10, face = "bold", hjust = 0.5))
+g3
+```
+
+```{r}
+# Residuals against X
+g4 <- ggplot(data3, aes(x = X, y = e))+
+  geom_point()+
+  geom_hline(yintercept = 0)+
+  ggtitle("Residuals against X")+
+  scale_x_continuous("X")+
+  scale_y_continuous("Residuals")+
+  theme(plot.title = element_text(size = 10, face = "bold", hjust = 0.5))
+g4
+```
+
+The residual plot against the fitted values and X does raise the question whether the constant variance assumption of residuals 
+is hold, which means I do observe the issue of heteroskedasticity. Cases with small fitted values tend to have a systematic 
+pattern.
+
+```{r}
+# Normal Probability Plot
+qqnorm(data3$e)
+qqline(data3$e)
+```
+
+The normal probability plot of the residuals does suggest residuals are normally distributted.
+
+```{r}
+# Use shapiro-Wilk normality test
+shapiro.test(data3$e)
+```
+
+P-value = 0.3506, which is greater than 0.05, we could not reject the null hypothesis, therefore, we conclude that residuals are
+normally distributed.
+
+
+
+
+
+
+
+
+
+
