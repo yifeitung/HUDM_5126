@@ -1,0 +1,93 @@
+---
+title: "HW12_Solution"
+author: "Chengxuan Hu"
+date: "12/1/2020"
+output: word_document
+---
+
+1. a) Report the fitted equation.
+```{r}
+X<-c(2,2,0.667,0.667,0.4,0.4,0.286,0.286,0.222,0.222,0.2,0.2)
+Y<-c(0.0615,0.0527,0.0344,0.0258,0.0138,0.0258,0.0129,0.0183,0.0083,0.0169,0.0129,0.0087)
+
+mod<-nls(Y~g1*X/(g2+X))
+summary(mod)
+
+# Y.hat = 0.1050*X/(1.6748+X) 
+```
+
+b) Interpret the estimated parameters.
+```{r}
+# gamma0: mean response at Dose 0   
+# gamma1: maximal effect
+# gamma2: Dose providing 50% of maximal effect 
+```
+
+c) Provide a scatterplot and include the fitted curve to it.
+```{r}
+plot(X,Y)
+h = seq(0, 2.5, len=100)
+lines(h, (coef(mod)[1]*h)/((coef(mod)[2])+h))
+```
+
+
+13.5 Home computers. A computer manufacturer hired a market research firm to investigate the relationship between the likelihood a family will purchase a home computer and the price of the home computer. The data that follow are based on replicate surveys done in two similar cities. One thousand heads of households in each city were randomly selected and asked if they would be likely to purchase a home computer at a given price. Eight prices (X. in dollars) were studied, and 100 heads of households in each city were randomly assigned to a given price. The proportion Iikely to purchase at a given price is denoted by Y.
+```{r}
+t13.5 <- read.table("http://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2013%20Data%20Sets/CH13PR05.txt", header = FALSE)
+names(t13.5)[1]<-paste("y")
+names(t13.5)[2]<-paste("x")
+attach(t13.5)
+```
+
+
+a. To obtain initial estimates of gamma0,gamma1,and gamma2,note that f(X,gamma) approaches a lower asymptote gamma0 as X increases without bound. Hence, let g0(0) = 0 and observe that when we ignore the error term, a logarithmic transformation then yields Yiprime = beta0 + beta1Xi, where Yiprime = log(e) Yi, beta0 = log(e)gamma2, and beta1 = - gamma1. Therefore, fit a linear regression function based on the transformed data and use as initial estimates g0(0) = 0, g1(O) = -b1, and g2(O) = exp(b0).
+```{r}
+logy = log(y)
+initial = lm(logy ~ x)
+summary(initial)
+# b0 = -5.073e-01
+# b1 = -6.935e-04
+# g0(0) = 0 
+# g1(0) = -1*b1 = 6.935e-04
+# g2(0) = exp(b0) = 0.6021191
+## The estimated regression function: log(y) = -5.073e-01 -6.935e-04*x
+```
+
+
+b. Using the starting values obtained in part (a), find the least squares estimates of the parameters gamma0, gamma1, and gamma2.
+```{r}
+mod1 <- nls(y ~ g0+g2*exp(-g1*x), data = t13.5, start = list(g0 = 0, g1 = 6.935e-04, g2 = 0.6021191))  
+summary(mod1)
+## least squares estimates of the parameters gamma0 = 4.823e-02
+## least squares estimates of the parameters gamma1 = 1.117e-03
+## least squares estimates of the parameters gamma2 = 7.134e-01
+```
+
+
+13.6. Refer to Home computers Problem 13.5.
+a. Plot the estimated nonlinear regression function and the data. Does the fit appear to be adequate?
+```{r}
+plot(x, y)
+lines(h, coef(mod1)[1] + coef(mod1)[3]*exp(-coef(mod1)[2]*h),col="red")
+lines(t13.5$x, predict(mod1), col="blue")
+## The fit appears to be adequate since the line fits the data.
+```
+
+b. Obtain the residuals and plot them against the fitted values and against X on separate graphs. Also obtain a normal probability plot. Does the model appear to be adequate?
+```{r}
+e = resid(mod1)
+plot(predict(mod1),e)
+abline(h=0)
+## It is not a systematic pattern, so independence assumption holds.
+
+plot(x,e)
+abline(h=0)
+## It seems that linearity violates since it has a downward trend. Outliers are not apparent.
+
+qqnorm(e)
+qqline(e)
+## Normality assumption looks ok since the pattern has an upward linear trend except the first two cases.
+
+## The model appears to be adequate.
+```
+
