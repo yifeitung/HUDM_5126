@@ -1,0 +1,32 @@
+\begin{table}[!htbp] \centering 
+  \caption{Regression Results} 
+  \label{tab: 2} 
+\begin{tabular}{@{\extracolsep{5pt}}lcc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & \multicolumn{2}{c}{\textit{Dependent variable:}} \\ 
+\cline{2-3} 
+\\[-1.8ex] & \multicolumn{2}{c}{Audience Score} \\ 
+ & OLS & FGLS \\ 
+\\[-1.8ex] & (1) & (2)\\ 
+\hline \\[-1.8ex] 
+ IMDB Rating & 9.527$^{***}$ & 11.018$^{***}$ \\ 
+  & (0.350) & (0.376) \\ 
+  & & \\ 
+ Audience Rating-Upright & 20.858$^{***}$ & 18.966$^{***}$ \\ 
+  & (0.767) & (0.761) \\ 
+  & & \\ 
+ Constant & $-$11.532$^{***}$ & $-$20.258$^{***}$ \\ 
+  & (2.006) & (2.231) \\ 
+  & & \\ 
+\hline \\[-1.8ex] 
+Observations & 650 & 650 \\ 
+R$^{2}$ & 0.882 & 0.889 \\ 
+Adjusted R$^{2}$ & 0.882 & 0.889 \\ 
+Residual Std. Error (df = 647) & 6.949 & 1.738 \\ 
+F Statistic (df = 2; 647) & 2,427.986$^{***}$ & 2,599.298$^{***}$ \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Note:}  & \multicolumn{2}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+\end{tabular} 
+\end{table}

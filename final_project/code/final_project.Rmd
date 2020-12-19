@@ -1,0 +1,1236 @@
+---
+title: "HUDM5126 Linear Models and Regression Analysis Final Project"
+author: "Yifei Dong"
+date: "11/27/2020"
+output: pdf_document
+---
+
+
+# 0. Data Preparation
+
+```{r}
+# Load packages
+library(dplyr)
+library(ggplot2)
+library(GGally)
+library(gridExtra)
+library(qwraps2)
+library(stargazer)
+library(MASS)
+library(bestglm)
+library(car)
+library(lmtest)
+library(nortest)
+```
+
+```{r}
+# Load Data
+load("movies.Rdata")
+# First 5 observations of the dataset
+head(movies, 5)
+```
+
+```{r}
+# Generalizability
+# summary counts of movies by year
+mydata <- movies %>%
+  group_by(thtr_rel_year) %>%
+  tally()
+mydata
+```
+
+```{r}
+# Number of movies released in theater by year
+g1 <- ggplot(movies, aes(x = thtr_rel_year, y = ..count..))+
+  geom_bar(fill = "gray25", color = "white")+
+  scale_x_continuous("Year the movie is released in theaters")+
+  scale_y_continuous("Count")+
+  ggtitle("Number of Movies released in theater per year")+
+  theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5))
+g1
+```
+
+```{r}
+# Box plot of number of movies released in theater per year 
+# Distribution of the number of movies released in theater per year
+g2 <- ggplot(mydata, aes(y = n))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())+
+  scale_y_continuous("Count")
+g2
+```
+
+Based on the summary statistics and box plot of the count, 75$\%$ of the years in the data set have less than 20 movies
+released. Based on the rule of thumb, we need at least 30 observations to generalize our results to the whole 
+population. Therefore, we could not generalize our research results to all U.S movies produced and released in each 
+year. However, due to the fact that this data set consists of 651 randomly sampled movies, and the total number of 
+observations (651) in this data set is well below 10$\%$ of all movies produced and released in the United Sates before
+2016, we could safely generalize this data to the population of interest.
+
+```{r}
+# Remove variables for informational purposes and time relevant variables
+movies2 <- movies %>%
+  dplyr::select(title, title_type, genre, runtime, mpaa_rating, imdb_rating, imdb_num_votes,
+         critics_rating, critics_score, audience_rating, audience_score, best_pic_nom, best_pic_win,
+         best_actor_win, best_actress_win, best_dir_win, top200_box)
+head(movies2, 5)
+```
+
+```{r}
+# Check if the observations have NA values
+movies2[!complete.cases(movies2), ]
+```
+
+There is one observation with NA value for `runtime`, which is the "The End of America". Remove this observations from the 
+data set.
+
+```{r}
+# Remove rows with NA values
+movies2 <- na.omit(movies2)
+nrow(movies2) # We then have 650 observations
+```
+
+# 1. Exploratory Data Analysis
+
+```{r}
+# Summary statistics for predictor variables
+summary(movies2[, -1])
+```
+
+
+```{r, results='hide'}
+# LaTeX Descriptive Statistics Table for categorical variables
+our_summary1 <- 
+  list("Title Type" = 
+         list("Documentary" = ~qwraps2::n_perc(title_type == "Documentary", 
+                                               digits = 2),
+              "Feature Film" = ~qwraps2::n_perc(title_type == "Feature Film", 
+                                                digits = 2),
+              "TV Movie" = ~qwraps2::n_perc(title_type == "TV Movie", 
+                                            digits = 2)),
+       "Genre" = 
+         list("Drama" = ~qwraps2::n_perc(genre == "Drama", 
+                                         digits = 2),
+              "Comedy" = ~qwraps2::n_perc(genre == "Comedy", 
+                                          digits = 2),
+              "Action and Adventure" = ~qwraps2::n_perc(genre == "Action & Adventure", 
+                                                      digits = 2),
+              "Animation" = ~qwraps2::n_perc(genre == "Animation", 
+                                             digits = 2),
+              "Mystery and Suspense" = ~qwraps2::n_perc(genre == "Mystery & Suspense", 
+                                                      digits = 2),
+              "Documentary" = ~qwraps2::n_perc(genre == "Documentary", 
+                                               digits = 2),
+              "Horror" = ~qwraps2::n_perc(genre == "Horror", digits = 2),
+              "Science Fiction and Fantasy" = ~qwraps2::n_perc(genre == "Science Fiction & Fantasy", 
+                                                            digits = 2),
+              "Musical and Performing Arts" = ~qwraps2::n_perc(genre == "Musical & Performing Arts", 
+                                                            digits = 2),
+              "Art House and International" = ~qwraps2::n_perc(genre == "Art House & International", 
+                                                            digits = 2),
+              "Other" = ~qwraps2::n_perc(genre == "Other", 
+                                         digits = 2)),
+       "MPAA Rating" = 
+         list("G" = ~qwraps2::n_perc(mpaa_rating =="G", 
+                                     digits = 2),
+              "NC-17" = ~qwraps2::n_perc(mpaa_rating == "NC-17", 
+                                         digits = 2),
+              "PG" = ~qwraps2::n_perc(mpaa_rating == "PG", 
+                                      digits = 2),
+              "PG-13" = ~qwraps2::n_perc(mpaa_rating == "PG-13", 
+                                         digits = 2),
+              "R" = ~qwraps2::n_perc(mpaa_rating == "R", 
+                                     digits = 2),
+              "Unrated" = ~qwraps2::n_perc(mpaa_rating == "Unrated",
+                                           digits = 2)),
+       "Critics Rating" =
+         list("Certified Fresh" = ~qwraps2::n_perc(critics_rating == "Certified Fresh", 
+                                                   digits = 2),
+              "Fresh" = ~qwraps2::n_perc(critics_rating == "Fresh", 
+                                         digits = 2),
+              "Rotten" = ~qwraps2::n_perc(critics_rating == "Rotten", 
+                                          digits = 2)),
+       "Audience Rating" = 
+         list("Spilled" = ~qwraps2::n_perc(audience_rating == "Spilled",
+                                           digits = 2),
+              "Upright" = ~qwraps2::n_perc(audience_rating == "Upright", digits = 2)),
+       "Best Picture Nomination" = 
+         list("No" = ~qwraps2::n_perc(best_pic_nom == "no", 
+                                      digits = 2),
+              "Yes" = ~qwraps2::n_perc(best_pic_nom == "yes", 
+                                       digits = 2)),
+       "Won Oscar Best Picture Award" = 
+         list("No" = ~qwraps2::n_perc(best_pic_win == "no", 
+                                      digits = 2),
+              "Yes" = ~qwraps2::n_perc(best_pic_win == "yes", 
+                                       digits = 2)),
+       "Main Actors ever won an Oscar" = 
+         list("No" = ~qwraps2::n_perc(best_actor_win == "no", 
+                                      digits = 2),
+              "Yes" = ~qwraps2::n_perc(best_actor_win == "yes", 
+                                       digits = 2)),
+       "Main Actresses ever won an Oscar" = 
+         list("No" = ~qwraps2::n_perc(best_actress_win == "no", 
+                                      digits = 2),
+              "Yes" = ~qwraps2::n_perc(best_actress_win == "yes", 
+                                       digits = 2)),
+       "Director ever won an Oscar" =
+         list("No" = ~qwraps2::n_perc(best_dir_win == "no", 
+                                      digits = 2),
+              "Yes" = ~qwraps2::n_perc(best_dir_win == "yes", 
+                                       digits = 2)),
+       "Movie ever in the Top 200 Box Office" =
+         list("No" = ~qwraps2::n_perc(top200_box == "no", 
+                                      digits = 2),
+              "Yes" = ~qwraps2::n_perc(top200_box == "yes", 
+                                       digits = 2)))
+categorical_summary <- summary_table(movies2, our_summary1)
+```
+
+
+## 1.1 Categoriacal Variables
+
+```{r}
+# title type
+summary1 <- movies2 %>%
+  group_by(title_type) %>%
+  tally()
+summary1
+```
+
+```{r}
+# Bar plot of Type of Movie
+g3 <- ggplot(summary1, aes(x = title_type, y = n))+
+  geom_bar(stat = "identity", fill = "grey", color = "black")+
+  scale_x_discrete("Type of Movie")+
+  scale_y_continuous("Count")+
+  geom_text(aes(label = n), vjust = -0.5, color = "black", size = 3.5, 
+            face = "bold", fontface = "bold")+
+  theme(axis.title = element_text(face = "bold", hjust = 0.5, size = 8))
+g3
+```
+
+```{r}
+# Genre
+summary2 <- movies %>%
+  group_by(genre) %>%
+  tally()
+summary2
+```
+
+```{r}
+# Bar plot of Genre
+g4 <- ggplot(summary2, aes(x = genre, y = n))+
+  geom_bar(stat = "identity", fill = "grey", color = "black")+
+  scale_x_discrete("Genre of Movie")+
+  scale_y_continuous("Count")+
+  coord_flip()+
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), size = 3.5, fontface = "bold")+
+  theme(axis.title = element_text(face = "bold", hjust = 0.5, size = 10))
+g4
+```
+
+```{r}
+# Critics Rating
+summary3 <- movies2 %>%
+  group_by(critics_rating) %>%
+  tally()
+summary3
+```
+
+```{r}
+# Critics Rating
+g5 <- ggplot(summary3, aes(x = critics_rating, y = n))+
+  geom_bar(stat = "identity", fill = "grey", color = "black")+
+  scale_x_discrete("Critics rating on Rotten Tomatoes")+
+  scale_y_continuous("Count")+
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), size = 3.5, fontface = "bold")+
+  theme(axis.title = element_text(face = "bold", hjust = 0.5, size = 8))
+g5
+```
+
+```{r}
+# Best Picture Oscar nomination
+g6 <- ggplot(movies2, aes(x = best_pic_nom, y = ..prop.., group = 1))+
+  geom_bar(fill = "grey", color = "black")+
+  scale_x_discrete("Oscar Best Picture Nomination", label = c("No", "Yes"))+
+  scale_y_continuous("Percent", labels = scales::percent)+
+  geom_text(aes(label = scales::percent(..prop.., accuracy = 0.01), y = (..prop..)), stat = "count", 
+            position = position_stack(vjust = 0.5), size =3)+
+  theme(axis.title = element_text(size = 8, hjust = 0.5, face = "bold"))
+g6
+```
+
+```{r}
+# Best Picture Won Status
+g7 <- ggplot(movies2, aes(x = best_pic_win, y = ..prop.., group = 1))+
+  geom_bar(fill = "grey", color = "black")+
+  scale_x_discrete("Movie ever won an Oscar Best Picture", label = c("No", "Yes"))+
+  scale_y_continuous("Percent", labels = scales::percent)+
+  geom_text(aes(label = scales::percent(..prop.., accuracy = 0.01), y = (..prop..)), stat = "count", 
+            position = position_stack(vjust = 0.5), angle = 35, size = 3)+
+  theme(axis.title = element_text(size = 8, hjust = 0.5, face = "bold"))
+g7
+```
+
+```{r}
+# Actors in the movie ever won an Oscar
+g8 <- ggplot(movies2, aes(x = best_actor_win, y = ..prop.., group = 1))+
+  geom_bar(fill = "grey", color = "black")+
+  scale_x_discrete("Actors ever won an Oscar", label = c("No", "Yes"))+
+  scale_y_continuous("Percent", labels = scales::percent)+
+  geom_text(aes(label = scales::percent(..prop.., accuracy = 0.01), y = (..prop..)), stat = "count", 
+            position = position_stack(vjust = 0.5), size = 3)+
+  theme(axis.title = element_text(size = 8, hjust = 0.5, face = "bold"))
+g8
+```
+
+```{r}
+# Actresses in the movie ever won an Oscar
+g9 <- ggplot(movies2, aes(x = best_actress_win, y = ..prop.., group = 1))+
+  geom_bar(fill = "grey", color = "black")+
+  scale_x_discrete("Actresses ever won an Oscar", label = c("No", "Yes"))+
+  scale_y_continuous("Percent", labels = scales::percent)+
+  geom_text(aes(label = scales::percent(..prop.., accuracy = 0.01), y = (..prop..)), stat = "count", 
+            position = position_stack(vjust = 0.5), size = 3)+
+  theme(axis.title = element_text(size = 8, hjust = 0.5, face = "bold"))
+g9
+```
+
+```{r}
+# Director of the movie ever won an Oscar
+g10 <- ggplot(movies2, aes(x = best_dir_win, y = ..prop.., group = 1))+
+  geom_bar(fill = "grey", color = "black")+
+  scale_x_discrete("Director ever won an Oscar", label = c("No", "Yes"))+
+  scale_y_continuous("Percent", labels = scales::percent)+
+  geom_text(aes(label = scales::percent(..prop.., accuracy = 0.01), y = (..prop..)), stat = "count", 
+            position = position_stack(vjust = 0.5), size = 3)+
+  theme(axis.title = element_text(size = 8, hjust = 0.5, face = "bold"))
+g10
+```
+
+```{r}
+# Movie ever in the Top 200 Box Office
+g11 <- ggplot(movies2, aes(x = top200_box, y = ..prop.., group = 1))+
+  geom_bar(fill = "grey", color = "black")+
+  scale_x_discrete("Movie ever in the Top 200 Box Office", label = c("No", "Yes"))+
+  scale_y_continuous("Percent", labels = scales::percent)+
+  geom_text(aes(label = scales::percent(..prop.., accuracy = 0.01), y = (..prop..)), stat = "count", 
+            position = position_stack(vjust = 0.5), size = 3)+
+  theme(axis.title = element_text(size = 8, hjust = 0.5, face = "bold"))
+g11
+```
+
+```{r}
+grid.arrange(g6, g7, g8, g9, g10, g11, ncol = 3, nrow = 2)
+```
+
+```{r}
+# MPAA rating of the Movie
+g12 <- ggplot(movies2, aes(x = mpaa_rating))+
+  geom_bar(aes(y = ..count..), fill = "grey", color = "black")+
+  geom_text(aes(label = (..count..), y = (..count..)), stat = "count", 
+            vjust = -0.5, size = 3, fontface = "bold")+
+  scale_x_discrete("MPAA rating of the Movie")+
+  scale_y_continuous("Count")+
+  theme(axis.title = element_text(face = "bold", hjust = 0.5, size = 8))
+g12
+```
+
+```{r}
+# Audience Rating
+g13 <- ggplot(movies2, aes(x = audience_rating))+
+  geom_bar(aes(y = ..count..), fill = "grey", color = "black")+
+  geom_text(aes(label = (..count..), y = (..count..)), stat = "count", 
+            position = position_stack(vjust = 0.5), size = 3, fontface = "bold")+
+  scale_x_discrete("Audience rating of the Movie")+
+  scale_y_continuous("Count")+
+  theme(axis.title = element_text(face = "bold", hjust = 0.5, size = 8))
+g13
+```
+
+```{r}
+grid.arrange(g3, g5, g12, g13, ncol = 2)
+```
+
+## 1.2 Numerical Variables
+
+### 1.2.1 Response Variable
+
+```{r}
+# Histogram of response variable: Audience Score
+g14 <- ggplot(movies2, aes(x = audience_score))+
+  geom_histogram(fill = "white", col = "black")+
+  scale_x_continuous("Audience Score")+
+  scale_y_continuous("Frequency")+
+  geom_vline(xintercept = mean(movies2$audience_score), linetype = "dashed", col = "red")+
+  geom_vline(xintercept = median(movies2$audience_score), linetype = "dashed", col = "blue")+
+  geom_text(label = "Mean: 62.35", x = 55, y = 45, col = "red")+
+  geom_text(label = "Median: 65", x = 72, y = 45, col = "blue")
+g14
+```
+
+```{r}
+summary(movies2$audience_score)
+```
+
+The median of the response variable, audience score is 65. 25% of the movies in the data set have 
+audience score higher than 80 and 25% of the movies have audience score lower than 46. The lowest 
+audience score in the data set is 11 and the highest is 97. Also, due to the fact that mean of audience 
+score is less than the median of audience score, we have a left-skewed distribution.
+
+```{r}
+# Movie Run time
+g15 <- ggplot(movies2, aes(x = runtime))+
+  geom_histogram(fill = "white", color = "black")+
+  scale_y_continuous("Count")+
+  scale_x_continuous("Run time")
+g15
+```
+
+```{r}
+# IMDB rating
+g16 <- ggplot(movies, aes(x = imdb_rating))+
+  geom_histogram(fill = "white", color = "black")+
+  scale_x_continuous("IMDB rating")+
+  scale_y_continuous("Count")
+g16
+```
+
+```{r}
+g17 <- ggplot(movies2, aes(x = imdb_num_votes))+
+  geom_histogram(fill = "white", color = "black")+
+  scale_x_continuous("IMDB Number of Votes")+
+  scale_y_continuous("Count")
+g17
+```
+
+```{r}
+# Critics scores
+g18 <- ggplot(movies2, aes(x = critics_score))+
+  geom_histogram(fill = "white", color = "black")+
+  scale_x_continuous("Critics Scores")+
+  scale_y_continuous("Count")
+g18
+```
+
+```{r}
+grid.arrange(g15, g16, g17, g18, ncol = 2)
+```
+
+```{r}
+summary(movies2$runtime) # Run time
+summary(movies2$imdb_rating) # IMDB rating
+summary(movies2$imdb_num_votes) # IMDB Number of Votes
+summary(movies2$critics_score) # Critics Scores on Rotten Tomatoes
+```
+
+The run time, IMDB number of votes have a right-skewed distribution, while IMDB rating and critics scores on Rotten Tomatoes have left-skewed distributions.
+
+### 1.2.2 Response Variable and Categorical Variables
+
+```{r}
+# Distribution of Audience Scores by Movies Genre
+g19 <- ggplot(movies2, aes(x = genre, y = audience_score))+
+  stat_boxplot(geom = "errorbar")+
+  geom_boxplot()+
+  scale_x_discrete("Genre", 
+                   labels = c("Action & Adventure" = "A & A", "Art House & International" = "AH & I", 
+                              "Musical & Performing Arts" = "M & PA", "Mystery & Suspense" = "M & S",
+                              "Science Fiction & Fantasy" = "SF & F"))+
+  scale_y_continuous("Audience Score")
+g19
+```
+
+```{r}
+# Distribution of Audience Score by MPAA Rating
+g20 <- ggplot(movies2, aes(x = mpaa_rating, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("MPAA Rating")+
+  scale_y_continuous("Audience Score")
+g20
+```
+
+```{r}
+# Distribution of Audience Score by Oscar Best Picture Nomination Status
+g21 <- ggplot(movies2, aes(x = best_pic_nom, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Oscar Best Picture Nomination", label = c("No", "Yes"))+
+  scale_y_continuous("Audience Score")
+g21
+```
+
+```{r}
+# Distribution of Audience Score by Oscar Best Picture Award Status
+g22 <- ggplot(movies2, aes(x = best_pic_win, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Movie ever won an Oscar Best Picture", labels = c("No", "Yes"))+
+  scale_y_continuous("Audience Score")
+g22
+```
+
+```{r}
+# Distribution of Audience Score by Actors ever won an Oscar
+g23 <- ggplot(movies2, aes(x = best_actor_win, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Actors ever won an Oscar", labels = c("No", "Yes"))+
+  scale_y_continuous("Audience Score")
+g23
+```
+
+```{r}
+# Distribution of Audience Score by Actresses ever won an Oscar
+g24 <- ggplot(movies2, aes(x = best_actress_win, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Actresses ever won an Oscar", labels = c("No", "Yes"))+
+  scale_y_continuous("Audience Score")
+g24
+```
+
+```{r}
+# Distribution of Audience Score by Director ever won an Oscar
+g25 <- ggplot(movies2, aes(x = best_dir_win, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Movie Director has ever won an Oscar", labels = c("No", "Yes"))+
+  scale_y_continuous("Audience Score")
+g25
+```
+
+```{r}
+# Distribution of Audience Score by Movie has ever in the Top 200 Box Office
+g26 <- ggplot(movies2, aes(x = top200_box, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Movie has ever in the Top 200 Box Office", labels = c("No", "Yes"))+
+  scale_y_continuous("Audience Score")
+g26
+```
+
+```{r}
+# Distrbution of Audience Score by Audience rating of the Movie
+g27 <- ggplot(movies2, aes(x = audience_rating, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Audience rating of the Movie")+
+  scale_y_continuous("Audience Score")
+g27
+```
+
+```{r}
+# Distribution of Audience Score by Type of Movie
+g28 <- ggplot(movies2, aes(x = title_type, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Type of the Movie")+
+  scale_y_continuous("Audience Score")
+g28
+```
+
+```{r}
+# Distribution of Response Variable by selected Categorical Variables
+grid.arrange(g19, g20)
+```
+
+```{r}
+grid.arrange(g21, g22, g26, g27, ncol = 2)
+```
+
+```{r}
+grid.arrange(g23, g24, g25, g28, ncol = 2)
+```
+
+```{r}
+# Distribution of Audience Score by Critics rating
+g29 <- ggplot(movies2, aes(x = critics_rating, y = audience_score))+
+  stat_boxplot(geom = "errorbar", width = 0.15)+
+  geom_boxplot()+
+  scale_x_discrete("Critics Rating of the Movie")+
+  scale_y_continuous("Audience Score")
+g29
+```
+
+```{r}
+# Audience Score grouped by Movies ever received an Oscar Best Picture Nomination
+# Summary Statistics Table
+by(movies2$audience_score, movies2$best_pic_nom, summary)
+```
+
+```{r}
+# Test equal variance
+var.test(movies2$audience_score~movies2$best_pic_nom, alternative = "two.sided") # unequal variance
+```
+
+```{r}
+# Two-Sample T-Test
+t.test(audience_score~best_pic_nom, data = movies2)
+```
+
+```{r}
+# Audience score grouped by Movies ever won an Oscar Best Picture: Summary Statistics Table
+by(movies2$audience_score, movies2$best_pic_win, summary)
+```
+
+```{r}
+# Equal Variance Test
+var.test(audience_score~best_pic_win, data = movies2, alternative = "two.sided")
+```
+
+```{r}
+# Two-sample T-test
+t.test(audience_score~best_pic_win, data = movies2)
+```
+
+```{r}
+# Audience score grouped by Movies ever in the Top 200 Box Office: Summary Statistics Table
+by(movies2$audience_score, movies2$top200_box, summary)
+```
+
+```{r}
+# Equal Variance Test
+var.test(audience_score~top200_box, data = movies2, alternative = "two.sided") # cannot reject H0
+```
+
+```{r}
+# Two-sample T-test
+t.test(audience_score~top200_box, data = movies2, var.equl = TRUE)
+```
+
+```{r}
+# Audience score grouped by Audience rating on Rotten Tomatoes: Summary Statistics Table
+by(movies2$audience_score, movies2$audience_rating, summary)
+```
+
+```{r}
+# Equal Variance Test
+var.test(audience_score~audience_rating, data = movies2, alternative = "two.sided")
+```
+
+```{r}
+# Two-Sample T-test
+t.test(audience_score~audience_rating, data = movies2)
+```
+
+```{r}
+# Audience score grouped by Actors ever won an Oscar: Summary Statistics Table
+by(movies2$audience_score, movies2$best_actor_win, summary)
+```
+
+```{r}
+# Equal Variance Test
+var.test(audience_score ~ best_actor_win, data = movies2, alternative = "two.sided") # cannot reject H0
+```
+
+```{r}
+# Two-Sample T-test
+t.test(audience_score~best_actor_win, data = movies2, var.equl = TRUE)
+```
+
+```{r}
+# Audience Score grouped by Actresses ever won an Oscar: Summary Statistics Table
+by(movies2$audience_score, movies2$best_actress_win, summary)
+```
+
+```{r}
+# Equal Variance Test
+var.test(audience_score ~ best_actress_win, data = movies2, alternative = "two.sided") 
+# cannot reject H0
+```
+
+```{r}
+# Two-Sample T-Test
+t.test(audience_score~best_actress_win, data = movies2, var.equl = TRUE)
+```
+
+```{r}
+# Audience Score grouped by Movie Director has ever won an Oscar: Summary Statistics Table
+by(movies2$audience_score, movies2$best_dir_win, summary)
+```
+
+```{r}
+# Equal Variance Test
+var.test(audience_score ~ best_dir_win, data = movies2, alternative = "two.sided") 
+# cannot reject H0
+```
+
+```{r}
+# Two-Sample T-Test
+t.test(audience_score~best_dir_win, data = movies2, var.equal = TRUE)
+```
+
+```{r}
+# Audience Score grouped by Movie Type: Summary Statistics Table
+by(movies2$audience_score, movies2$title_type, summary)
+```
+
+```{r}
+# Audience Score grouped by Critics Rating: Summary Statistics Table
+by(movies2$audience_score, movies2$critics_rating, summary)
+```
+
+```{r}
+as_certified_fresh <- movies2 %>%
+  filter(critics_rating == "Certified Fresh") %>%
+  dplyr::select(audience_score)
+as_rotten <- movies2 %>%
+  filter(critics_rating == "Rotten") %>%
+  dplyr::select(audience_score)
+```
+
+```{r}
+# Equal Variance Test
+var.test(as_certified_fresh$audience_score, as_rotten$audience_score, alternative = "two.sided")
+```
+
+```{r}
+# Two Sample T-Test
+t.test(as_certified_fresh$audience_score, as_rotten$audience_score)
+```
+
+# 2. Modelling
+
+# 2.1 Multicollinearity
+
+```{r}
+# Correlation Plot between numerical variables
+ggpairs(movies2, columns = c("runtime", "imdb_rating", "imdb_num_votes", "critics_score"),
+        progress = FALSE)
+```
+
+```{r}
+correlation.matrix <- cor(movies2[, c("runtime", "imdb_rating", "imdb_num_votes", "critics_score")])
+correlation.matrix
+```
+
+```{r}
+stargazer(correlation.matrix, title = "Correlation Table for Numerical Variables")
+```
+
+There exists strong positive relationship between movie's IMDB rating and critics score on Rotten Tomatoes. The correlation 
+between those predictors is 0.765. This could result in multicollinearity issue. Therefore, removing one of those two variables 
+could improve our estimates. To decide which of those two predictors will be removed from the analysis, I decide to take a look 
+at the relationship between audience score (response variable) and IMDB rating, as well as critics score.
+
+```{r}
+# Relationship between Audience Score and IMDB Rating
+g30 <- ggplot(movies2, aes(x = imdb_rating, y = audience_score))+
+  geom_point()+
+  geom_smooth(method = "lm", se = FALSE)+
+  scale_x_continuous("IMDB Rating")+
+  scale_y_continuous("Audience Score")+
+  ggtitle("Scatterplot of IMDB Rating vs. Audience Score")+
+  theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5))
+g30
+```
+
+```{r}
+reg1 <- lm(audience_score ~ imdb_rating, data = movies2)
+summary(reg1)
+```
+
+```{r}
+# Relationship between Audience Score and Critics Score
+g31 <- ggplot(movies2, aes(x = critics_score, y = audience_score))+
+  geom_point()+
+  geom_smooth(method = "lm", se = FALSE)+
+  scale_x_continuous("Critics Score")+
+  scale_y_continuous("Audience Score")+
+  ggtitle("Scatterplot of Critics Score and Audience Score")+
+  theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5))
+g31
+```
+
+```{r}
+reg2 <- lm(audience_score ~ critics_score, data = movies2)
+summary(reg2)
+```
+
+The $R^2$ for the estimated regression model between audience score and IMDB rating is 0.7481, which is higher compared to the 
+$R^2$ for the regression model between audience score and critics score. Therefore, I decide to keep IMDB rating in the 
+analysis.
+
+```{r}
+# Create a data set for modeling
+movies3 <- movies2 %>%
+  dplyr::select(title_type, genre, runtime, mpaa_rating, imdb_rating, imdb_num_votes,
+                critics_rating, audience_rating, audience_score, best_pic_nom, best_pic_win,
+                best_actor_win, best_actress_win, best_dir_win, top200_box)
+head(movies3, 5)
+```
+
+# 2.2 Forward Stepwise Selection with AIC
+
+```{r}
+# Forward Stepwise with AIC
+min.model <- lm(audience_score ~ 1, data = movies3) # start with only intercept
+max.model <- lm(audience_score ~ ., data = movies3) # stop with model with everything
+scp <- list(lower = min.model, upper = max.model)
+fwd <- stepAIC(min.model, direction = "forward", scope = scp)
+```
+
+The forward stepwise slection with AIC identified 6 covariates, which are IMDB rating, audience rating on Rotten Tomatoes, 
+genre, movie ever received an Oscar Best Picture nomination, movie's runtime, and movie's actress ever won an Oscar award.
+
+```{r}
+reg3 <- lm(audience_score ~ imdb_rating + audience_rating + genre + best_pic_nom + 
+             runtime + best_actress_win,
+           data = movies3)
+summary(reg3)
+```
+
+```{r}
+# Residuals vs. Fitted Values
+g32 <- ggplot(data = reg3, aes(x = .fitted, y = .resid))+
+  geom_point()+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  scale_x_continuous("Fitted Values")+
+  scale_y_continuous("Residuals")
+g32
+```
+
+```{r}
+bptest(reg3)
+```
+
+# 2.3 Forward Stepwise Selection with BIC
+
+```{r}
+# Forward Selection with BIC (k=log(N)), StepAIC function can do the same job for BIC
+fwd2 <- stepAIC(min.model,
+                direction = "forward",
+                scope = scp,
+                k = log(nrow(movies3)))
+```
+
+Using the Forward Stepwise Selection with BIC identified 2 covariates, which are IMDB rating and 
+audience rating on Rotten Tomatoes.
+
+```{r}
+reg4 <- lm(audience_score ~ imdb_rating + audience_rating, data = movies3)
+summary(reg4)
+```
+
+The Adjusted R-squared for the BIC is 0.8821, while the Adjusted R-squared for the AIC is 0.8861. Although the latter is higher,
+I would consider using the BIC. This is due to the fact that AIC adds 4 more covariates into the model but only improved 0.004 
+(very small) in terms of Adjusted R-Squared. BIC favors more parsimonious model than AIC and it produces a more easily 
+interpretable model. While using the model suggested by the AIC does make good predictions, it requires more information. 
+
+# 2.4 Model Diagnostics
+
+Let's do model diagnostics for the model suggested by BIC.
+
+# 2.4.1 Outliers, Leverage Vlues and Influential Points
+
+```{r}
+# Get Influence Plot
+influencePlot(reg4,  main = "Influence Plot",
+              sub = "Circle size is proportional to Cook's distance")
+```
+
+Test for Outliers using the Bonferroni outlier test.
+
+```{r}
+# Bonferroni p-value for most extreme observations
+# The null for this test is that the observation is not an outlier
+outlierTest(reg4, cutoff = 0.05)
+```
+
+Observation 126 is the most extreme observation in our data, but it isn't an outlier, as the null cannot
+be rejected.
+
+\vspace{12pt}
+
+```{r}
+# Use Build-in function to get influence measures
+im <- influence.measures(reg4)
+influential_measures <- as.data.frame(im$infmat)
+head(influential_measures, 5)
+```
+
+Leverage Values: Large leverage values are greater than $2p/n$.
+
+```{r}
+leverage_cutoff <- 2*(3/650)
+(which(influential_measures$hat > leverage_cutoff))
+```
+
+```{r}
+(which(im$is.inf[, 7] == "TRUE"))
+```
+
+
+```{r}
+# Prepare a Leverage Plot
+leverage_data <- im$infmat[, 7]
+leverage_influence <- im$is.inf[, 7]
+index <- seq(1, 650, by = 1)
+leverage_data <- as.data.frame(cbind(leverage_data, leverage_influence, index))
+leverage_data <- leverage_data %>%
+  dplyr::select("hat_values" = leverage_data,
+                "INFLUENCE" = leverage_influence,
+                index)
+head(leverage_data, 5)
+```
+
+```{r}
+gleverage <- ggplot(leverage_data, aes(x = as.factor(index), 
+                                       y = hat_values, label = index))+
+  geom_point()+
+  geom_text(data = subset(leverage_data, INFLUENCE ==1), nudge_x = 0.05, vjust = -0.5, size = 3)+
+  scale_x_discrete("Case Index", breaks = seq(0, 650, by = 100))+
+  scale_y_continuous("Hat Values")+
+  geom_hline(yintercept = leverage_cutoff, linetype = "dashed")
+gleverage
+```
+
+\vspace{12pt}
+
+DFFITS: cut off rule: greater than $2\sqrt{\frac{p}{n}}$ for data set with observations $n \geqq 40$.
+
+```{r}
+# Below is how Build-in function find those points
+which(im$is.inf[, 4] == "TRUE")
+```
+
+```{r}
+# Prepare an DFFITS plot
+dffits_data <- abs(im$infmat[, 4])
+dffits_influence <- im$is.inf[, 4]
+dffits_combined <- as.data.frame(cbind(dffits_data, dffits_influence))
+dffits_data <- cbind(dffits_combined, index)
+dffits_data <- dffits_data %>%
+  dplyr::select("DFFITS" = 'dffits_data',
+                "INFLUENCE" = 'dffits_influence',
+                index)
+```
+
+```{r}
+gdffits <- ggplot(dffits_data, aes(x = as.factor(index), y = DFFITS, label = index))+
+  geom_point()+
+  geom_text(data = subset(dffits_data, INFLUENCE == 1), nudge_x = 0.05, vjust = -0.5, size = 3)+
+  scale_x_discrete("Case Index", breaks=seq(0,650, by = 100))+
+  scale_y_continuous("DFFITS")+
+  geom_hline(yintercept = 2*sqrt(3/650), linetype = "dashed")
+gdffits
+```
+
+\vspace{12pt}
+
+Cook's Distance: If Cooks distance > 4/n the observation is considered too influential
+
+```{r}
+# Identify Influential Points use Cook's Distance
+cook_cutoff <- 4/nrow(movies3)
+plot(reg4, which = 4, cook.levels = cook_cutoff)
+```
+
+```{r}
+# Check influential points' Cook's distance: we have 29 observations larger than cutoff point
+cooks_distance_df <- influential_measures %>%
+  dplyr::select(cook.d) %>%
+  filter(cook.d > cook_cutoff) %>%
+  arrange(desc(cook.d))
+cooks_distance_df
+```
+
+If you use another cutoff value: $F(0.50; p, n-p)$
+
+```{r}
+cook_cutoff2 <- qf(0.50, 3, 647)
+which(im$infmat[, 6] > cook_cutoff2)
+```
+
+```{r}
+which(im$is.inf[, 6] == "TRUE")
+```
+
+This returns that I don't see any cases that are very influential based on Cook's distance.
+
+# 2.4.2 Heteroskedasticity
+
+```{r}
+# Linear Relationship between Numerical Variable X and Y: Functional Form is correct
+olsresiduals <- residuals(reg4)
+ggplot(movies3, aes(x = imdb_rating, y = olsresiduals))+
+  geom_point()+
+  scale_x_continuous("IMDB Rating")+
+  scale_y_continuous("Residuals")+
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+```{r}
+# Residuals vs. Fitted Values
+g33 <- ggplot(data = reg4, aes(x = .fitted, y = .resid))+
+  geom_point()+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  scale_x_continuous("Fitted Values")+
+  scale_y_continuous("Residuals")
+g33
+```
+
+The residuals vs. fitted values plot exhibits a megaphone shape. There is more variation in the lower level of fitted audience scores. Confirm heteroskedasticity. 
+
+```{r}
+# Breusch Pagan Test for heteroskedasticity
+bptest(reg4)
+```
+
+We can also use Breusch-Pagan test. P-value is very small, we should reject the null hypothesis and conclude heteroskedasticity.
+
+```{r}
+y_hat <- predict(reg4)
+residuals.stdres <- rstandard(reg4)
+data <- as.data.frame(cbind(y_hat, residuals.stdres))
+```
+
+```{r}
+# Standardized Residuals vs. Fitted Values
+g34 <- ggplot(data, aes(x = y_hat, y = residuals.stdres))+
+  geom_point()+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  scale_x_continuous("Fitted Values")+
+  scale_y_continuous("Standardized Residuals")
+g34
+```
+
+# 2.4.3 Normal Probability of Residuals
+
+```{r}
+# Normal Probability of Residuals
+hist_res <- ggplot(data = reg4, aes(x = .resid))+
+  geom_histogram(fill = "white", col = "black", bins = 50)+
+  geom_vline(xintercept = median(reg4$residuals), linetype = "dashed", col = "blue")+
+  geom_vline(xintercept = mean(reg4$residuals), linetype = "dashed", col = "red")+
+  geom_text(label = "Median", x = 4, y = 45, col = "blue")+
+  geom_text(label = "Mean", x = -2, y = 45, col = "red")+
+  xlab("Residuals")+
+  ylab("Count")+
+  ggtitle("Histogram of Residuals")+
+  theme(plot.title = element_text(size = 10, hjust = 0.5, face = "bold"))
+hist_res
+```
+
+```{r}
+qq_res <- ggplot(data = reg4, aes(sample = .resid))+
+  stat_qq()+stat_qq_line()+
+  ggtitle("Normal Q-Q Plot")+
+  theme(plot.title = element_text(size = 10, face = "bold", hjust = 0.5))
+qq_res
+```
+```{r}
+grid.arrange(hist_res, qq_res, ncol = 2)
+```
+
+```{r}
+# Anderson-Darling Test for Normality
+ad.test(reg4$residuals) # The data does not follow a normal distribution
+```
+
+```{r}
+# Shapiro-Wilk
+shapiro.test(reg4$residuals)
+```
+
+# 2.4.4 Independent Residuals
+
+```{r}
+# Assumption: Independent Residuals
+dwtest(reg4) # p-value = 0.2705, Cannot reject H0
+```
+
+# 2.4.5 Multicollinearity use VIF
+
+```{r}
+# Check Multicollinearity
+vif(reg4)
+```
+
+The VIF are all smaller than 5, there is no multicollinearity issue after we use OLS model. 
+
+To sum up, we should deal with heteroskedasticity issue..
+
+# 3. Feasible Generalized Least Squares (FGLS)
+
+We do not know the covariance of variance. So, let's use FGLS method
+
+```{r}
+# Squared Residuals vs. Fitted Values
+residuals2 <- residuals(reg4)^2
+g35 <- ggplot(reg4, aes(x = .fitted, y = residuals2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = FALSE)+
+  scale_x_continuous("Fitted Values")+
+  scale_y_continuous("Squared Residuals")
+g35
+```
+
+```{r}
+# Squared Residuals vs. IMDB Rating
+g36 <- ggplot(movies3, aes(x = imdb_rating, y = residuals2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = FALSE)+
+  scale_x_continuous("IMDB Rating")+
+  scale_y_continuous("Squared Residuals")
+g36
+```
+
+```{r}
+lne2 <- log(residuals2)
+reg5 <- lm(lne2~imdb_rating+audience_rating, data = movies3)
+summary(reg5)
+```
+
+```{r, results='hide'}
+# Obtain estimated variances
+lne2fitted <- predict(reg5)
+v <- exp(lne2fitted)
+```
+
+```{r, results='hide'}
+# Estimate weight for each case
+w <- 1/v
+```
+
+```{r}
+# Feasible Generalized Least Squares
+reg.gls <- lm(audience_score ~ imdb_rating + audience_rating, weights = w, data = movies3)
+summary(reg.gls)
+```
+
+```{r}
+y_hat2 <- predict(reg.gls)
+gls_stdres <- rstandard(reg.gls)
+data3 <- as.data.frame(cbind(y_hat2, gls_stdres))
+```
+
+```{r}
+# FGLS: Standardized Residuals vs. Fitted Values
+g37 <- ggplot(data3, aes(x = y_hat2, y = gls_stdres))+
+  geom_point()+
+  geom_hline(yintercept = 0, linetype = "dashed")+
+  scale_x_continuous("Fitted Values")+
+  scale_y_continuous("Standardized Residuals")
+g37
+```
+
+Using Feasible GLS, according to the the Standardized Residuals vs. Fitted Values plot, it looks much better (Although 
+heteroskedasticity may still exists, it is much better improved) and it has a higher Adjusted R-Squared (0.889). The FGLS model 
+is definitely more precise.
+
+```{r}
+# Test for Normality of Residuals
+ad.test(reg.gls$residuals)
+```
+
+\newpage
+
+# 4. Prediction
+
+I am going to predict the audience score for a new movie that has not been used to fit the model. The movie I choose is "The 
+Incredible Hulk". A movie produced by Universal Pictures in 2008. I extracted the audience rating from Rotten Tomatoes and IMDB 
+rating from IMDB (6.7, which lies inside the range of the values of the predictor variables in our model). The true audience 
+score for this movie is 70.
+
+```{r}
+newmovie <- as.data.frame(cbind(imdb_rating = 6.7, 
+                         audience_rating = "Upright"))
+newmovie <- newmovie %>%
+  mutate(imdb_rating = as.numeric(imdb_rating))
+```
+
+```{r}
+# Use OLS to predict
+predict(reg4, newmovie, interval = "prediction")
+```
+
+The OLS model predicts movie "The Incredible Hulk" will have an audience score at approximately 73.16. The model predicts, with 95% confidence, that the movie is expected to have an audience score between 59.49 and 86.83. The prediction interval contains the actual audience score for this movie.
+
+\vspace{12pt}
+
+```{r}
+# Obtain OLS residual
+y_hulk <- 70
+(olse <- y_hulk - predict(reg4, newmovie))
+(olse2 = olse^2)
+```
+
+```{r}
+# Use Feasible GLS to predict
+# First, we have to calculate weight for this case
+data4 <- as.data.frame(cbind(lne2 = log(olse2),
+                             imdb_rating = 6.7,
+                             audience_rating = "Upright"))
+data4 <- data4 %>%
+  mutate(imdb_rating = as.numeric(imdb_rating))
+```
+
+```{r}
+lne2fitted2 <- predict(reg5, data4)
+v2 <- exp(lne2fitted2)
+(w2 <- 1/v2)
+```
+
+```{r}
+predict(reg.gls, newmovie, interval = "prediction", weights = w2)
+```
+
+Again, the FGLS confidence interval is narrower than OLS. This is another way to show that FGLS is more efficient than OLS.
+
+# 5. Report Regression Results
+
+```{r, results='hide'}
+# Generate Regression Tables in LaTex form
+stargazer(reg4, reg.gls, title = "Regression Results",
+          dep.var.labels = c("Audience Score"),
+          covariate.labels = c("IMDB Rating", "Audience Rating"),
+          column.labels = c("OLS", "FGLS"))
+```
+
+\newpage
+
+# 6. Optional: Iterative Feasible GLS (IFGLS)
+
+```{r}
+# We can use a function to do the IFGLS
+test <- vector('list', 50) # Set limits as 50
+test[[1]] <- list(coef0 = coef(reg4), res0 = reg4$residuals, 
+                  fitted0 = reg4$fitted.values, summary = summary(reg4)) # Begin with OLS
+```
+
+```{r}
+ifgls_function <- function(obj){
+  residuals2 <- obj[['res0']]^2
+  logresiduals2 <- log(residuals2)
+  residuals2_lm <- lm(logresiduals2~imdb_rating+audience_rating, data = movies3)
+  residuals2_fitted <- predict(residuals2_lm)
+  estiamted_variance <- exp(residuals2_fitted)
+  w <- 1/estiamted_variance
+  reg_fgls <- lm(audience_score~imdb_rating+audience_rating, weights = w, data = movies3)
+  return(list(coef0 = coef(reg_fgls), res0 = reg_fgls$residuals, 
+              fitted0 = reg_fgls$fitted.values, summary = summary(reg_fgls)))
+}
+```
+
+```{r}
+# After iterating 15 times, the coefficients become stable
+for (i in 1: 20){
+  test[[i+1]] <- ifgls_function(test[[i]])
+  cat(i, test[[i]][['coef0']], '\n')
+}
+```
+
+\vspace{12pt}
+
+Using the Iterative FGLS, the final coefficient of IMDB rating becomes stable at 12.41811 and the coefficient for Audience Rating becomes stable at 17.36031.
+
+```{r}
+test[[15]][['summary']]
+```
+
+
